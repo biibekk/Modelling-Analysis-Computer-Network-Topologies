@@ -1,0 +1,4 @@
+flask
+networkx
+flask-cors
+matplotlib

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Network Topology Dashboard</title>
+  </head>
+  <body>
+    <header>
+      <h1>Network Topology Analysis Dashboard</h1>
+    </header>
+
+    <div id="app">
+      <div class="controls">
+        <label>Architecture</label>
+        <select id="archSelect"></select>
+
+        <label>Core Failures</label>
+        <input type="range" id="failures" min="0" max="10" value="0">
+        <span id="failCount">0</span>
+
+        <button id="runFail">Simulate Failures</button>
+      </div>
+
+      <div id="cy"></div>
+
+      <div class="metrics">
+        <h3>Metrics</h3>
+        <table>
+          <tr><td>Avg Host Path</td><td id="m_path">-</td></tr>
+          <tr><td>Avg Host Latency</td><td id="m_latency">-</td></tr>
+          <tr><td>Diameter</td><td id="m_diameter">-</td></tr>
+          <tr><td>Max Betweenness</td><td id="m_bc">-</td></tr>
+          <tr><td>Largest CC Ratio</td><td id="m_cc">-</td></tr>
+          <tr><td>Host Connectivity</td><td id="m_conn">-</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+}
+
+header {
+  background: #1f2937;
+  color: white;
+  padding: 15px;
+  text-align: center;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  gap: 10px;
+  padding: 10px;
+}
+
+.controls, .metrics {
+  background: white;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+#cy {
+  height: 600px;
+  background: white;
+  border-radius: 6px;
+}

@@ -2,4 +2,5 @@ flask
 networkx
 flask-cors
 
-jsonschemagunicorn
+jsonschema
+gunicorn

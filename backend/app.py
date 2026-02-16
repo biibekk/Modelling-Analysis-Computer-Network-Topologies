@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 import models
@@ -7,7 +7,7 @@ import metrics
 import json
 from networkx.readwrite import json_graph
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
 
@@ -51,6 +51,10 @@ def compute_all_metrics(G):
 # -------------------------------
 # ROUTES
 # -------------------------------
+
+@app.route('/')
+def serve():
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 @app.route("/architectures")

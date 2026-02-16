@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Network Topology Analysis Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/assets/index-BMePTMaz.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DGgfGGh1.css">
+</head>
+
+<body>
+  <header class="main-header">
+    <h1>Network Topology Analysis Dashboard</h1>
+    <p class="subtitle">Visualize, Edit, Compare & Simulate Network Architectures</p>
+  </header>
+
+  <div id="app">
+    <!-- LEFT PANEL -->
+    <aside class="panel panel-left">
+      <div id="error" class="hidden"></div>
+
+      <section class="card">
+        <div class="control-group">
+          <label>Simulation Type</label>
+          <select id="simType">
+            <option value="data_center">Data Center Network</option>
+            <option value="miscellaneous">Miscellaneous</option>
+          </select>
+        </div>
+        <h3 class="section-title" style="margin-top: 1rem;">Architecture</h3>
+        <div class="control-group">
+          <select id="archSelect"></select>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="section-title">Failure Simulation</h3>
+        <div class="control-group">
+          <label>Core Failures: <strong id="failCount">0</strong></label>
+          <input type="range" id="failures" min="0" max="10" value="0" />
+          <button id="runFail" class="btn btn-danger">Simulate Failures</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3 class="section-title">Graph Editor</h3>
+        <div class="editor-toolbar">
+          <button id="addNodeBtn" class="btn btn-sm btn-primary">+ Node</button>
+          <button id="addLinkBtn" class="btn btn-sm btn-primary">+ Link</button>
+          <button id="deleteBtn" class="btn btn-sm btn-danger">Delete</button>
+        </div>
+        <p class="hint">Select a mode above, then click on the graph.</p>
+
+        <div id="addNodeForm" style="display:none">
+          <div class="control-group">
+            <label>Node ID</label>
+            <input type="text" id="newNodeId" placeholder="e.g. SW_new" />
+          </div>
+          <div class="control-group">
+            <label>Role</label>
+            <select id="newNodeRole">
+              <option value="host">Host</option>
+              <option value="switch">Switch</option>
+              <option value="router">Router</option>
+              <option value="core">Core</option>
+              <option value="access_point">Access Point</option>
+              <option value="base_station">Base Station</option>
+              <option value="city">City</option>
+            </select>
+          </div>
+          <button id="confirmAddNode" class="btn btn-primary btn-full">Add</button>
+        </div>
+      </section>
+      <button id="recalcBtn" class="inference-btn">Recalculate</button>
+      <button id="resetGraphBtn" class="inference-btn hidden"
+        style="margin-top: 8px; border-color: var(--danger); color: var(--danger);">Reset to Original</button>
+
+      <section class="card">
+        <h3 class="section-title">Compare Topologies</h3>
+        <div id="compareChecks"></div>
+        <div class="btn-group">
+          <button id="runCompare" class="btn btn-primary flex-1">Compare Selected</button>
+          <button id="clearCompare" class="btn btn-danger flex-2">Clear</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- CENTER: GRAPH -->
+    <main class="graph-container">
+      <div class="info-icon-container">
+        <span class="info-icon">ⓘ</span>
+        <div class="info-tooltip" id="legendTooltip">
+          <h4>Architecture Legend</h4>
+          <p>Loading...</p>
+        </div>
+      </div>
+      <div class="viewport-controls">
+        <button id="resetView" class="control-btn">Reset View</button>
+        <button id="toggleLayout" class="control-btn">Toggle Layout</button>
+      </div>
+      <div id="cy"></div>
+    </main>
+
+    <!-- RIGHT PANEL: METRICS -->
+    <aside class="panel panel-right">
+      <section class="card">
+        <h3 class="section-title">Metrics</h3>
+        <table class="metrics-table">
+          <tr>
+            <td>Node Count</td>
+            <td id="m_nodes">-</td>
+          </tr>
+          <tr>
+            <td>Link Count</td>
+            <td id="m_links">-</td>
+          </tr>
+          <tr>
+            <td>Avg Host Path</td>
+            <td id="m_path">-</td>
+          </tr>
+          <tr>
+            <td>Avg Host Latency</td>
+            <td id="m_latency">-</td>
+          </tr>
+          <tr>
+            <td>Diameter</td>
+            <td id="m_diameter">-</td>
+          </tr>
+          <tr>
+            <td>Max Betweenness</td>
+            <td id="m_bc">-</td>
+          </tr>
+          <tr>
+            <td>Largest CC Ratio</td>
+            <td id="m_cc">-</td>
+          </tr>
+          <tr>
+            <td>Host Connectivity</td>
+            <td id="m_conn">-</td>
+          </tr>
+          <tr>
+            <td>Redundancy</td>
+            <td id="m_redundancy">-</td>
+          </tr>
+          <tr>
+            <td>Avg Clustering</td>
+            <td id="m_clustering">-</td>
+          </tr>
+          <tr>
+            <td>Cost Efficiency</td>
+            <td id="m_cost">-</td>
+          </tr>
+        </table>
+      </section>
+      <button id="viewInference" class="inference-btn">Performance Analysis</button>
+    </aside>
+  </div>
+
+  <!-- COMPARISON MODAL -->
+  <div id="compareSection" class="analysis-overlay hidden">
+    <div class="overlay-header">
+      <h3>Topology Comparison</h3>
+      <button id="closeCompare" class="close-btn">&times;</button>
+    </div>
+    <div class="overlay-content">
+      <div class="table-wrap">
+        <table id="compareTable" class="comparison-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYSIS OVERLAY -->
+  <div id="analysisOverlay" class="analysis-overlay hidden">
+    <div class="overlay-header">
+      <h3>Architectural Inference</h3>
+      <button id="closeOverlay" class="close-btn">&times;</button>
+    </div>
+    <div id="inferenceContent" class="overlay-content">
+      <!-- Dynamic Content -->
+    </div>
+  </div>
+
+</body>
+
+</html>

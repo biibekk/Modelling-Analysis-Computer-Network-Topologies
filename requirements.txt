@@ -1,5 +1,5 @@
 flask
 networkx
 flask-cors
-matplotlib
-jsonschema
+
+jsonschemagunicorn

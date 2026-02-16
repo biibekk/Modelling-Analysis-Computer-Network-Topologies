@@ -4,49 +4,48 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Topology Analysis Pro</title>
+  <title>Network Topology Analysis Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 
 <body>
-  <div class="container">
-    <aside class="sidebar">
-      <header>
-        <h1>🌐 Network Topology</h1>
-        <p>Visualize, Edit & Compare Architectures</p>
-      </header>
+  <header class="main-header">
+    <h1>Network Topology Analysis Dashboard</h1>
+    <p class="subtitle">Visualize, Edit, Compare & Simulate Network Architectures</p>
+  </header>
 
-      <div id="error" class="hidden"
-        style="color:var(--danger); font-size: 0.75rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.1); border-radius: 0.5rem; border: 1px solid rgba(239, 68, 68, 0.2);">
-      </div>
+  <div id="app">
+    <!-- LEFT PANEL -->
+    <aside class="panel panel-left">
+      <div id="error" class="hidden"></div>
 
-      <section>
+      <section class="card">
         <h3 class="section-title">Architecture</h3>
         <div class="control-group">
           <select id="archSelect"></select>
         </div>
       </section>
 
-      <section>
+      <section class="card">
         <h3 class="section-title">Failure Simulation</h3>
         <div class="control-group">
-          <label>Core Failures: <strong id="failCount" style="color: var(--primary)">0</strong></label>
+          <label>Core Failures: <strong id="failCount">0</strong></label>
           <input type="range" id="failures" min="0" max="10" value="0" />
-          <button id="runFail" class="impact-btn">Simulate Failures</button>
+          <button id="runFail" class="btn btn-danger">Simulate Failures</button>
         </div>
       </section>
 
-      <section>
+      <section class="card">
         <h3 class="section-title">Graph Editor</h3>
         <div class="editor-toolbar">
-          <button id="addNodeBtn" class="btn-sm">+ Node</button>
-          <button id="addLinkBtn" class="btn-sm">+ Link</button>
-          <button id="deleteBtn" class="btn-sm btn-danger">Delete</button>
-          <button id="recalcBtn" class="btn-sm active"
-            style="background: var(--primary); border: none;">Recalculate</button>
+          <button id="addNodeBtn" class="btn btn-sm btn-primary">+ Node</button>
+          <button id="addLinkBtn" class="btn btn-sm btn-primary">+ Link</button>
+          <button id="deleteBtn" class="btn btn-sm btn-danger">Delete</button>
+          <button id="recalcBtn" class="btn btn-sm btn-primary">Recalculate</button>
         </div>
+        <p class="hint">Select a mode above, then click on the graph.</p>
 
         <div id="addNodeForm" style="display:none">
           <div class="control-group">
@@ -65,99 +64,113 @@
               <option value="city">City</option>
             </select>
           </div>
-          <button id="confirmAddNode" class="btn-accent">Confirm Add</button>
+          <button id="confirmAddNode" class="btn btn-primary btn-full">Add</button>
         </div>
       </section>
 
-      <section>
-        <h3 class="section-title">Topologies Comparison</h3>
+      <section class="card">
+        <h3 class="section-title">Compare Topologies</h3>
         <div id="compareChecks"></div>
-        <button id="runCompare" class="btn-accent">Compare Selected</button>
-      </section>
-
-      <section>
-        <h3 class="section-title">Metrics</h3>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">Nodes</div>
-            <div id="m_nodes" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Links</div>
-            <div id="m_links" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Avg Path</div>
-            <div id="m_path" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Latency</div>
-            <div id="m_latency" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Diameter</div>
-            <div id="m_diameter" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">BC Max</div>
-            <div id="m_bc" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">LCC Ratio</div>
-            <div id="m_cc" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Connectivity</div>
-            <div id="m_conn" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Redundancy</div>
-            <div id="m_redundancy" class="stat-value">-</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Cost Eff</div>
-            <div id="m_cost" class="stat-value">-</div>
-          </div>
-        </div>
+        <button id="runCompare" class="btn btn-primary btn-full">Compare Selected</button>
       </section>
     </aside>
 
+    <!-- CENTER: GRAPH -->
     <main class="graph-container">
-      <div id="compareSection" class="analysis-overlay hidden">
-        <div class="overlay-header">
-          <h3>🔍 Topology Comparison</h3>
-          <button id="closeCompare" class="close-btn">&times;</button>
-        </div>
-        <div class="overlay-content">
-          <div class="table-wrap">
-            <table id="compareTable" class="comparison-table"></table>
-          </div>
+      <div class="info-icon-container">
+        <span class="info-icon">ⓘ</span>
+        <div class="info-tooltip" id="legendTooltip">
+          <h4>Architecture Legend</h4>
+          <p>Loading...</p>
         </div>
       </div>
-
       <div class="viewport-controls">
         <button id="resetView" class="control-btn">Reset View</button>
-        <button id="toggleLayout" class="control-btn">Layout</button>
+        <button id="toggleLayout" class="control-btn">Toggle Layout</button>
       </div>
-
       <div id="cy"></div>
-
-      <div class="legend-overlay">
-        <div class="legend-item"><span class="dot" style="background:#ef4444"></span>Core</div>
-        <div class="legend-item"><span class="dot" style="background:#f59e0b"></span>Aggregation</div>
-        <div class="legend-item"><span class="dot" style="background:#10b981"></span>Access</div>
-        <div class="legend-item"><span class="dot" style="background:#3b82f6"></span>Host</div>
-      </div>
     </main>
+
+    <!-- RIGHT PANEL: METRICS -->
+    <aside class="panel panel-right">
+      <section class="card">
+        <h3 class="section-title">Metrics</h3>
+        <table class="metrics-table">
+          <tr>
+            <td>Node Count</td>
+            <td id="m_nodes">-</td>
+          </tr>
+          <tr>
+            <td>Link Count</td>
+            <td id="m_links">-</td>
+          </tr>
+          <tr>
+            <td>Avg Host Path</td>
+            <td id="m_path">-</td>
+          </tr>
+          <tr>
+            <td>Avg Host Latency</td>
+            <td id="m_latency">-</td>
+          </tr>
+          <tr>
+            <td>Diameter</td>
+            <td id="m_diameter">-</td>
+          </tr>
+          <tr>
+            <td>Max Betweenness</td>
+            <td id="m_bc">-</td>
+          </tr>
+          <tr>
+            <td>Largest CC Ratio</td>
+            <td id="m_cc">-</td>
+          </tr>
+          <tr>
+            <td>Host Connectivity</td>
+            <td id="m_conn">-</td>
+          </tr>
+          <tr>
+            <td>Redundancy</td>
+            <td id="m_redundancy">-</td>
+          </tr>
+          <tr>
+            <td>Avg Clustering</td>
+            <td id="m_clustering">-</td>
+          </tr>
+          <tr>
+            <td>Cost Efficiency</td>
+            <td id="m_cost">-</td>
+          </tr>
+        </table>
+      </section>
+      <button id="viewInference" class="inference-btn">Performance Analysis</button>
+    </aside>
+  </div>
+
+  <!-- COMPARISON MODAL -->
+  <div id="compareSection" class="analysis-overlay hidden">
+    <div class="overlay-header">
+      <h3>Topology Comparison</h3>
+      <button id="closeCompare" class="close-btn">&times;</button>
+    </div>
+    <div class="overlay-content">
+      <div class="table-wrap">
+        <table id="compareTable" class="comparison-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYSIS OVERLAY -->
+  <div id="analysisOverlay" class="analysis-overlay hidden">
+    <div class="overlay-header">
+      <h3>Architectural Inference</h3>
+      <button id="closeOverlay" class="close-btn">&times;</button>
+    </div>
+    <div id="inferenceContent" class="overlay-content">
+      <!-- Dynamic Content -->
+    </div>
   </div>
 
   <script type="module" src="/src/main.js"></script>
-  <script>
-    // Simple overlay toggle logic since it's not in main.js yet
-    document.getElementById('closeCompare')?.addEventListener('click', () => {
-      document.getElementById('compareSection').classList.add('hidden');
-    });
-  </script>
 </body>
 
 </html>

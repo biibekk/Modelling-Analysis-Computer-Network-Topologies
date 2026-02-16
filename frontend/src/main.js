@@ -12,25 +12,31 @@ let linkSource = null; // for two-click link creation
 // HELPERS
 // ==============================
 
+// ==============================
+// HELPERS
+// ==============================
+
 function showError(msg) {
   console.error(msg);
   const el = document.getElementById("error");
-  if (el) { el.textContent = msg; el.style.display = "block"; }
+  if (el) {
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  }
 }
 function clearError() {
   const el = document.getElementById("error");
-  if (el) el.style.display = "none";
-}
-function setHint(msg) {
-  const el = document.getElementById("editorHint");
-  if (el) el.textContent = msg;
+  if (el) el.classList.add("hidden");
 }
 
 function roleColor(role) {
   switch (role) {
     case "core": return "#ef4444";
-    case "leaf": case "aggregation": case "edge": return "#f59e0b";
-    case "access": case "switch": return "#10b981";
+    case "leaf":
+    case "aggregation":
+    case "edge": return "#f59e0b";
+    case "access":
+    case "switch": return "#10b981";
     case "router": return "#8b5cf6";
     case "base_station": return "#f97316";
     case "access_point": return "#06b6d4";
@@ -93,27 +99,50 @@ document.getElementById("failures").oninput = e =>
 document.getElementById("runFail").onclick = simulateFailures;
 document.getElementById("runCompare").onclick = runComparison;
 
+// Viewport controls
+document.getElementById("resetView").onclick = () => {
+  if (cy) cy.fit();
+};
+document.getElementById("toggleLayout").onclick = () => {
+  if (cy) cy.layout({ name: 'cose', animate: true }).run();
+};
+
 // Editor buttons
 document.getElementById("addNodeBtn").onclick = () => {
   editorMode = null;
   linkSource = null;
   const form = document.getElementById("addNodeForm");
-  form.style.display = form.style.display === "none" ? "block" : "none";
-  setHint("Fill in the form and click Add.");
+  const isHidden = form.style.display === "none";
+  form.style.display = isHidden ? "block" : "none";
+  document.getElementById("addNodeBtn").classList.toggle("active", isHidden);
 };
 
 document.getElementById("addLinkBtn").onclick = () => {
-  editorMode = "addLink";
-  linkSource = null;
-  document.getElementById("addNodeForm").style.display = "none";
-  setHint("Click the SOURCE node, then click the TARGET node.");
+  if (editorMode === "addLink") {
+    editorMode = null;
+    document.getElementById("addLinkBtn").classList.remove("active");
+  } else {
+    editorMode = "addLink";
+    linkSource = null;
+    document.getElementById("addNodeForm").style.display = "none";
+    document.getElementById("addNodeBtn").classList.remove("active");
+    document.getElementById("deleteBtn").classList.remove("active");
+    document.getElementById("addLinkBtn").classList.add("active");
+  }
 };
 
 document.getElementById("deleteBtn").onclick = () => {
-  editorMode = "delete";
-  linkSource = null;
-  document.getElementById("addNodeForm").style.display = "none";
-  setHint("Click a node or edge to delete it.");
+  if (editorMode === "delete") {
+    editorMode = null;
+    document.getElementById("deleteBtn").classList.remove("active");
+  } else {
+    editorMode = "delete";
+    linkSource = null;
+    document.getElementById("addNodeForm").style.display = "none";
+    document.getElementById("addNodeBtn").classList.remove("active");
+    document.getElementById("addLinkBtn").classList.remove("active");
+    document.getElementById("deleteBtn").classList.add("active");
+  }
 };
 
 document.getElementById("confirmAddNode").onclick = () => {
@@ -121,7 +150,7 @@ document.getElementById("confirmAddNode").onclick = () => {
   const role = document.getElementById("newNodeRole").value;
   if (!id) return;
   if (cy.getElementById(id).length > 0) {
-    setHint(`Node "${id}" already exists!`);
+    alert(`Node "${id}" already exists!`);
     return;
   }
   cy.add({
@@ -131,7 +160,8 @@ document.getElementById("confirmAddNode").onclick = () => {
   });
   cy.getElementById(id).style("background-color", roleColor(role));
   document.getElementById("newNodeId").value = "";
-  setHint(`Node "${id}" added.`);
+  document.getElementById("addNodeForm").style.display = "none";
+  document.getElementById("addNodeBtn").classList.remove("active");
 };
 
 document.getElementById("recalcBtn").onclick = recalcCustomMetrics;
@@ -179,9 +209,9 @@ function drawGraph(data) {
         style: {
           "label": "data(id)",
           "font-size": 7,
-          "color": "#cbd5e1",
+          "color": "#94a3b8",
           "text-outline-width": 1,
-          "text-outline-color": "#1e293b",
+          "text-outline-color": "#0f172a",
           "background-color": e => roleColor(e.data("role")),
           "width": e => e.data("role") === "host" ? 8 : 14,
           "height": e => e.data("role") === "host" ? 8 : 14,
@@ -194,14 +224,16 @@ function drawGraph(data) {
         style: {
           "width": 1.2,
           "line-color": "rgba(148, 163, 184, 0.4)",
-          "curve-style": "bezier"
+          "curve-style": "bezier",
+          "target-arrow-shape": "none"
         }
       },
       {
         selector: "node:selected",
         style: {
           "border-color": "#fbbf24",
-          "border-width": 3
+          "border-width": 3,
+          "box-shadow": "0 0 10px #fbbf24"
         }
       }
     ],
@@ -214,28 +246,29 @@ function drawGraph(data) {
     if (editorMode === "addLink") {
       if (!linkSource) {
         linkSource = node.id();
-        setHint(`Source: ${linkSource}. Now click the target node.`);
+        node.select();
       } else {
         const tgt = node.id();
         if (tgt !== linkSource) {
           cy.add({ group: "edges", data: { source: linkSource, target: tgt, latency: 1 } });
-          setHint(`Link ${linkSource} → ${tgt} added.`);
         }
         linkSource = null;
         editorMode = null;
+        document.getElementById("addLinkBtn").classList.remove("active");
+        cy.elements().unselect();
       }
     } else if (editorMode === "delete") {
       cy.remove(node);
-      setHint(`Node "${node.id()}" and its edges deleted.`);
       editorMode = null;
+      document.getElementById("deleteBtn").classList.remove("active");
     }
   });
 
   cy.on("tap", "edge", evt => {
     if (editorMode === "delete") {
       cy.remove(evt.target);
-      setHint("Edge deleted.");
       editorMode = null;
+      document.getElementById("deleteBtn").classList.remove("active");
     }
   });
 }
@@ -253,9 +286,8 @@ function updateMetrics(m) {
     document.getElementById("m_diameter").textContent = m.diameter ?? 0;
     document.getElementById("m_bc").textContent = (m.max_betweenness ?? 0).toFixed(4);
     document.getElementById("m_cc").textContent = (m.largest_cc_ratio ?? 0).toFixed(2);
-    document.getElementById("m_conn").textContent = "-";
+    document.getElementById("m_conn").textContent = "100%"; // default
     document.getElementById("m_redundancy").textContent = m.redundancy ?? "-";
-    document.getElementById("m_clustering").textContent = (m.avg_clustering ?? 0).toFixed(4);
     document.getElementById("m_cost").textContent = m.cost_efficiency ?? "-";
   } catch (e) {
     showError(`Error updating metrics: ${e.message}`);
@@ -268,7 +300,6 @@ function updateMetrics(m) {
 
 function recalcCustomMetrics() {
   if (!cy) return;
-  setHint("Sending graph to backend…");
 
   const nodes = cy.nodes().map(n => ({ data: { id: n.id(), role: n.data("role") } }));
   const edges = cy.edges().map(e => ({
@@ -283,7 +314,6 @@ function recalcCustomMetrics() {
     .then(r => r.json())
     .then(m => {
       updateMetrics(m);
-      setHint("Metrics recalculated for edited graph.");
     })
     .catch(err => showError(`Recalculate failed: ${err.message}`));
 }
@@ -298,20 +328,28 @@ function simulateFailures() {
   fetch(`${API}/fail/${currentArch}?k=${k}`)
     .then(r => r.json())
     .then(res => {
-      document.getElementById("m_conn").textContent = res.host_connectivity.toFixed(2);
+      document.getElementById("m_conn").textContent = (res.host_connectivity * 100).toFixed(1) + "%";
       highlightFailures(res.failed_nodes);
     })
     .catch(err => showError(`Failure simulation failed: ${err.message}`));
 }
 
 function highlightFailures(failed) {
-  cy.nodes().style("opacity", 1);
+  cy.nodes().style({
+    "opacity": 1,
+    "background-color": e => roleColor(e.data("role"))
+  });
 
   failed.forEach(id => {
     const n = cy.getElementById(id);
     if (n.length) {
-      n.style("background-color", "#000");
-      n.style("opacity", 0.3);
+      n.animate({
+        style: {
+          "background-color": "#000",
+          "opacity": 0.2
+        },
+        duration: 500
+      });
     }
   });
 }
@@ -333,9 +371,7 @@ const METRIC_LABELS = {
   cost_efficiency: "Cost Efficiency"
 };
 
-// Metrics where HIGHER is better
 const HIGHER_IS_BETTER = new Set(["largest_cc_ratio", "redundancy", "avg_clustering"]);
-// Metrics where LOWER is better
 const LOWER_IS_BETTER = new Set(["avg_host_path", "avg_host_latency", "diameter", "cost_efficiency", "max_betweenness"]);
 
 function runComparison() {
@@ -356,17 +392,15 @@ function runComparison() {
 
 function renderComparisonTable(data, archs) {
   const section = document.getElementById("compareSection");
-  section.style.display = "block";
+  section.classList.remove("hidden");
 
   const table = document.getElementById("compareTable");
   const metricKeys = Object.keys(METRIC_LABELS);
 
-  // Header row
   let html = `<thead><tr><th>Metric</th>`;
   archs.forEach(a => { html += `<th>${a}</th>`; });
   html += `</tr></thead><tbody>`;
 
-  // Data rows
   metricKeys.forEach(key => {
     const values = archs.map(a => data[a]?.[key] ?? null);
     const numericVals = values.filter(v => v !== null && typeof v === "number");
@@ -386,9 +420,9 @@ function renderComparisonTable(data, archs) {
       }
     }
 
-    html += `<tr><td>${METRIC_LABELS[key]}</td>`;
+    html += `<tr><td><span class="metric-name">${METRIC_LABELS[key]}</span></td>`;
     values.forEach((v, i) => {
-      const formatted = v !== null ? (typeof v === "number" ? v.toFixed(4).replace(/\.?0+$/, '') : v) : "-";
+      const formatted = v !== null ? (typeof v === "number" ? v.toFixed(3).replace(/\.?0+$/, '') : v) : "-";
       let cls = "";
       if (i === bestIdx) cls = "best-val";
       else if (i === worstIdx) cls = "worst-val";
@@ -399,15 +433,21 @@ function renderComparisonTable(data, archs) {
 
   html += `</tbody>`;
   table.innerHTML = html;
-
-  // Scroll into view
-  section.scrollIntoView({ behavior: "smooth" });
 }
 
 // Global error catches
 window.addEventListener("error", e => {
-  try { showError(`Uncaught error: ${e.message}`); } catch (_) {}
+  try { showError(`Uncaught error: ${e.message}`); } catch (_) { }
 });
 window.addEventListener("unhandledrejection", e => {
-  try { showError(`Unhandled promise rejection: ${e.reason}`); } catch (_) {}
+  try { showError(`Unhandled promise rejection: ${e.reason}`); } catch (_) { }
+});
+
+
+// Global error catches
+window.addEventListener("error", e => {
+  try { showError(`Uncaught error: ${e.message}`); } catch (_) { }
+});
+window.addEventListener("unhandledrejection", e => {
+  try { showError(`Unhandled promise rejection: ${e.reason}`); } catch (_) { }
 });

@@ -181,32 +181,52 @@ fetch(`${API}/architectures`)
   })
   .then(archs => {
     clearError();
-    const select = document.getElementById("archSelect");
-    select.innerHTML = "";
-    archs.forEach(a => {
-      const o = document.createElement("option");
-      o.value = a;
-      o.textContent = a;
-      select.appendChild(o);
-    });
+    const allArchs = archs;
+    const simTypeSelect = document.getElementById("simType");
+    const archSelect = document.getElementById("archSelect");
 
-    // Build compare checkboxes
-    const checksDiv = document.getElementById("compareChecks");
-    checksDiv.innerHTML = "";
-    archs.forEach(a => {
-      const lbl = document.createElement("label");
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.value = a;
-      lbl.appendChild(cb);
-      lbl.appendChild(document.createTextNode(a));
-      checksDiv.appendChild(lbl);
-    });
+    // Categorize architectures
+    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
 
-    if (archs.length > 0) {
-      select.value = archs[0];
-      loadArchitecture(archs[0]);
-    } else {
+    function updateArchOptions() {
+      const type = simTypeSelect.value;
+      archSelect.innerHTML = "";
+      const checksDiv = document.getElementById("compareChecks");
+      checksDiv.innerHTML = "";
+
+      const filtered = allArchs.filter(a => {
+        if (type === "data_center") return dcArchs.has(a);
+        return !dcArchs.has(a);
+      });
+
+      filtered.forEach(a => {
+        // Dropdown options
+        const o = document.createElement("option");
+        o.value = a;
+        const displayName = a.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        o.textContent = displayName;
+        archSelect.appendChild(o);
+
+        // Compare checkboxes
+        const lbl = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = a;
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(displayName));
+        checksDiv.appendChild(lbl);
+      });
+
+      if (filtered.length > 0) {
+        archSelect.value = filtered[0];
+        loadArchitecture(filtered[0]);
+      }
+    }
+
+    simTypeSelect.onchange = updateArchOptions;
+    updateArchOptions(); // Initial load
+
+    if (allArchs.length === 0) {
       showError("No architectures returned by backend.");
     }
   })
@@ -223,6 +243,9 @@ document.getElementById("failures").oninput = e =>
 
 document.getElementById("runFail").onclick = simulateFailures;
 document.getElementById("runCompare").onclick = runComparison;
+document.getElementById("clearCompare").onclick = () => {
+  document.querySelectorAll("#compareChecks input:checked").forEach(c => c.checked = false);
+};
 
 // Viewport controls
 document.getElementById("resetView").onclick = () => {
@@ -293,9 +316,11 @@ document.getElementById("confirmAddNode").onclick = () => {
   document.getElementById("newNodeId").value = "";
   document.getElementById("addNodeForm").style.display = "none";
   document.getElementById("addNodeBtn").classList.remove("active");
+  document.getElementById("resetGraphBtn").classList.remove("hidden");
 };
 
 document.getElementById("recalcBtn").onclick = recalcCustomMetrics;
+document.getElementById("resetGraphBtn").onclick = () => loadArchitecture(currentArch);
 
 // ==============================
 // LOAD GRAPH
@@ -306,6 +331,8 @@ function loadArchitecture(arch) {
   editorMode = null;
   linkSource = null;
   isClusterLayout = true;
+  isClusterLayout = true;
+  document.getElementById("resetGraphBtn").classList.add("hidden");
   clearError();
 
   fetch(`${API}/graph/${arch}`)
@@ -441,11 +468,13 @@ function drawGraph(data) {
         editorMode = null;
         document.getElementById("addLinkBtn").classList.remove("active");
         cy.elements().unselect();
+        document.getElementById("resetGraphBtn").classList.remove("hidden");
       }
     } else if (editorMode === "delete") {
       cy.remove(node);
       editorMode = null;
       document.getElementById("deleteBtn").classList.remove("active");
+      document.getElementById("resetGraphBtn").classList.remove("hidden");
     }
   });
 
@@ -454,6 +483,7 @@ function drawGraph(data) {
       cy.remove(evt.target);
       editorMode = null;
       document.getElementById("deleteBtn").classList.remove("active");
+      document.getElementById("resetGraphBtn").classList.remove("hidden");
     }
   });
 }

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Node-link Topology Schema",
+  "type": "object",
+  "required": ["nodes", "links"],
+  "properties": {
+    "graph": {"type": "object"},
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {"type": ["string", "number"]},
+          "role": {"type": "string"},
+          "type": {"type": "string"},
+          "attrs": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": ["string", "number"]},
+          "target": {"type": ["string", "number"]}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

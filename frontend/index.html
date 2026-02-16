@@ -2,37 +2,110 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Network Topology Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <header>
-      <h1>Network Topology Analysis Dashboard</h1>
+      <h1>🌐 Network Topology Analysis Dashboard</h1>
+      <p class="subtitle">Visualize, Edit, Compare & Simulate Network Architectures</p>
     </header>
 
     <div id="app">
-      <div class="controls">
-        <label>Architecture</label>
-        <select id="archSelect"></select>
+      <div id="error" style="display:none"></div>
 
-        <label>Core Failures</label>
-        <input type="range" id="failures" min="0" max="10" value="0">
-        <span id="failCount">0</span>
+      <!-- LEFT PANEL -->
+      <aside class="panel panel-left">
+        <section class="card">
+          <h3>📡 Architecture</h3>
+          <select id="archSelect"></select>
+        </section>
 
-        <button id="runFail">Simulate Failures</button>
-      </div>
+        <section class="card">
+          <h3>⚡ Failure Simulation</h3>
+          <label>Core Failures: <strong id="failCount">0</strong></label>
+          <input type="range" id="failures" min="0" max="10" value="0" />
+          <button id="runFail" class="btn btn-danger">Simulate Failures</button>
+        </section>
 
-      <div id="cy"></div>
+        <section class="card">
+          <h3>✏️ Graph Editor</h3>
+          <div class="editor-toolbar">
+            <button id="addNodeBtn" class="btn btn-sm">+ Node</button>
+            <button id="addLinkBtn" class="btn btn-sm">+ Link</button>
+            <button id="deleteBtn" class="btn btn-sm btn-danger">Delete</button>
+            <button id="recalcBtn" class="btn btn-sm btn-accent">Recalculate</button>
+          </div>
+          <p class="hint" id="editorHint">Select a mode above, then click on the graph.</p>
 
-      <div class="metrics">
-        <h3>Metrics</h3>
-        <table>
-          <tr><td>Avg Host Path</td><td id="m_path">-</td></tr>
-          <tr><td>Avg Host Latency</td><td id="m_latency">-</td></tr>
-          <tr><td>Diameter</td><td id="m_diameter">-</td></tr>
-          <tr><td>Max Betweenness</td><td id="m_bc">-</td></tr>
-          <tr><td>Largest CC Ratio</td><td id="m_cc">-</td></tr>
-          <tr><td>Host Connectivity</td><td id="m_conn">-</td></tr>
-        </table>
+          <div id="addNodeForm" style="display:none">
+            <label>Node ID:</label>
+            <input type="text" id="newNodeId" placeholder="e.g. SW_new" />
+            <label>Role:</label>
+            <select id="newNodeRole">
+              <option value="host">Host</option>
+              <option value="switch">Switch</option>
+              <option value="router">Router</option>
+              <option value="core">Core</option>
+              <option value="access_point">Access Point</option>
+              <option value="base_station">Base Station</option>
+              <option value="city">City</option>
+            </select>
+            <button id="confirmAddNode" class="btn btn-sm btn-accent">Add</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>📊 Compare Topologies</h3>
+          <div id="compareChecks"></div>
+          <button id="runCompare" class="btn btn-accent">Compare Selected</button>
+        </section>
+      </aside>
+
+      <!-- CENTER: GRAPH -->
+      <main>
+        <div id="cy"></div>
+        <!-- Legend -->
+        <div class="legend">
+          <span class="legend-item"><span class="dot" style="background:#ef4444"></span>Core</span>
+          <span class="legend-item"><span class="dot" style="background:#f59e0b"></span>Aggregation/Leaf</span>
+          <span class="legend-item"><span class="dot" style="background:#10b981"></span>Access/Switch</span>
+          <span class="legend-item"><span class="dot" style="background:#3b82f6"></span>Host</span>
+          <span class="legend-item"><span class="dot" style="background:#8b5cf6"></span>Router</span>
+          <span class="legend-item"><span class="dot" style="background:#06b6d4"></span>AP/Base Station</span>
+          <span class="legend-item"><span class="dot" style="background:#0d9488"></span>City</span>
+        </div>
+      </main>
+
+      <!-- RIGHT PANEL: METRICS -->
+      <aside class="panel panel-right">
+        <section class="card">
+          <h3>📈 Metrics</h3>
+          <table class="metrics-table">
+            <tr><td>Node Count</td><td id="m_nodes">-</td></tr>
+            <tr><td>Link Count</td><td id="m_links">-</td></tr>
+            <tr><td>Avg Host Path</td><td id="m_path">-</td></tr>
+            <tr><td>Avg Host Latency</td><td id="m_latency">-</td></tr>
+            <tr><td>Diameter</td><td id="m_diameter">-</td></tr>
+            <tr><td>Max Betweenness</td><td id="m_bc">-</td></tr>
+            <tr><td>Largest CC Ratio</td><td id="m_cc">-</td></tr>
+            <tr><td>Host Connectivity</td><td id="m_conn">-</td></tr>
+            <tr><td>Redundancy</td><td id="m_redundancy">-</td></tr>
+            <tr><td>Avg Clustering</td><td id="m_clustering">-</td></tr>
+            <tr><td>Cost Efficiency</td><td id="m_cost">-</td></tr>
+          </table>
+        </section>
+      </aside>
+    </div>
+
+    <!-- COMPARISON TABLE (full width below) -->
+    <div id="compareSection" style="display:none">
+      <h2>🔍 Topology Comparison</h2>
+      <div class="table-wrap">
+        <table id="compareTable" class="compare-table"></table>
       </div>
     </div>
 

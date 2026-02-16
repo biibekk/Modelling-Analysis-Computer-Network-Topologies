@@ -1,0 +1,90 @@
+# Network comparison parameter schema (concise)
+networks:
+  - campus_network
+  - wan_mpls
+  - wireless_lan
+
+common_parameters:
+  throughput:
+    type: number
+    unit: "Mbps or Gbps"
+    description: "Aggregate and per-flow bandwidth"
+  latency:
+    type: number
+    unit: "ms"
+    description: "One-way or RTT"
+  packet_loss:
+    type: number
+    unit: "%"
+    description: "Packet loss percentage"
+  jitter:
+    type: number
+    unit: "ms"
+    description: "Variation in packet delay"
+  availability:
+    type: number
+    unit: "%"
+    description: "Service availability or uptime"
+  scalability:
+    type: integer
+    unit: "hosts/flows"
+    description: "Maximum supported hosts or flows"
+  cost:
+    type: number
+    unit: "USD or normalized"
+    description: "CAPEX/OPEX normalized metric"
+  energy:
+    type: number
+    unit: "W or kWh/day"
+    description: "Average power consumption"
+  security:
+    type: string
+    description: "Security controls summary or score"
+
+network_specific:
+  campus_network:
+    access_port_density:
+      type: integer
+      unit: "ports"
+    vlans:
+      type: integer
+      unit: "count"
+    stp_ecmp_convergence:
+      type: number
+      unit: "s"
+      description: "STP/ECMP failover/convergence time"
+  wan_mpls:
+    link_diversity:
+      type: integer
+      unit: "paths"
+    sla_latency:
+      type: number
+      unit: "ms"
+      description: "SLA guaranteed latency"
+    bgp_convergence:
+      type: number
+      unit: "s"
+      description: "Control-plane convergence time"
+  wireless_lan:
+    rssi_distribution:
+      type: string
+      description: "Statistics (mean/std/min/max) of RSSI in dBm"
+    client_concurrency:
+      type: integer
+      unit: "clients"
+    handover_latency:
+      type: number
+      unit: "ms"
+      description: "Handover success latency"
+
+measurement_guidelines:
+  traffic_profiles:
+    - name: "bulk_tcp"
+    - name: "voip"
+    - name: "web_mixed"
+  report_percentiles: [50, 95, 99]
+  sampling_duration_seconds: 300
+  failure_scenarios:
+    - name: "single_core_failure"
+    - name: "link_cut"
+    - name: "node_reboot"

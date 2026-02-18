@@ -619,6 +619,25 @@ input[type="range"] {
   font-weight: 700;
 }
 
+.trend-good {
+  color: var(--success) !important;
+  font-weight: 700;
+}
+
+.trend-bad {
+  color: var(--danger) !important;
+  font-weight: 700;
+}
+
+.value-old {
+  color: var(--text-muted);
+}
+
+.value-new {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
 .hidden {
   display: none !important;
 }

@@ -55,3 +55,4 @@ pnpm-debug.log*
 # files & folders
 trials
 backend/data-center.ipynb
+MODELING_REFERENCE.md

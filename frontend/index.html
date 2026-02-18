@@ -37,11 +37,15 @@
 
       <section class="card">
         <h3 class="section-title">Failure Simulation</h3>
-        <div class="control-group">
-          <label>Core Failures: <strong id="failCount">0</strong></label>
-          <input type="range" id="failures" min="0" max="10" value="0" />
-          <button id="runFail" class="btn btn-danger">Simulate Failures</button>
+        <div id="failure-inputs" class="failure-inputs-container">
+          <!-- Dynamic inputs based on roles -->
         </div>
+        <div class="btn-group">
+          <button id="runFail" class="btn btn-primary flex-1">Execute Simulation</button>
+          <button id="resetSim" class="btn btn-danger flex-1 hidden">Reset Network</button>
+        </div>
+        <button id="viewImpact" class="inference-btn hidden" style="margin-top: 12px;">FAILURE IMPACT
+          ANALYSIS</button>
       </section>
 
       <section class="card">

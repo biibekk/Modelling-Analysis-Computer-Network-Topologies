@@ -1,6 +1,5 @@
 flask
 networkx
 flask-cors
-
 jsonschema
 gunicorn

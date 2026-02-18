@@ -23,6 +23,13 @@ let editorMode = null; // null | "addLink" | "delete"
 let linkSource = null; // for two-click link creation
 let isClusterLayout = true; // default to cluster layout
 let baselineMetrics = {};
+let latestFailureMetrics = {};
+
+const ROLE_MAP = {
+  "leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
+  "fat-tree": { "core": "Core", "aggregation": "Aggregation", "edge": "Edge", "host": "Host" },
+  "three-tier": { "core": "Core", "aggregation": "Aggregation", "access": "Access", "host": "Host" }
+};
 
 const INFERENCES = {
   avg_host_path: {
@@ -60,8 +67,8 @@ const INFERENCES = {
     desc: "The minimum capacity between two equal halves of the network. Measures if the core can handle simultaneous host traffic.",
     impact: (v, m) => {
       const ratio = m.oversubscription;
-      if (ratio <= 1.1) return "Non-blocking: Theoretical max throughput for all hosts.";
-      return `Oversubscribed (${ratio.toFixed(1)}:1): Core is slower than edges. Normal for cost-saving DC designs.`;
+      if (ratio && ratio <= 1.1) return "Non-blocking: Theoretical max throughput for all hosts.";
+      return `Throughput Capacity: ${v.toFixed(0)} units. Measures the core's ability to handle global host traffic.`;
     }
   },
   diameter: {
@@ -73,48 +80,7 @@ const INFERENCES = {
     title: "Criticality (Choke Points)",
     desc: "Identifies the switch with the highest traffic load. High values indicate a single point of failure.",
     impact: (v, m) => {
-      if (!m.top_critical_nodes || m.top_critical_nodes.length === 0) return "Distributed: No major choke points.";
-      const top = m.top_critical_nodes[0];
-      const others = m.top_critical_nodes.slice(1, 4).map(n => n[0]).join(", ");
-      return `Critical Node: <b>${top[0]}</b> (score: ${top[1].toFixed(3)}). Secondary risks: ${others}.`;
-    }
-  },
-  graceful_degradation: {
-    title: "Graceful Degradation",
-    desc: "Measures network connectivity (LCC) as core switches fail. It should 'stretch' (stay connected), not 'snap' (fragment instantly).",
-    impact: (v) => {
-      if (!v || v.length < 2) return "Unknown: Data unavailable.";
-      const drop = (v[0].lcc - v[v.length - 1].lcc) * 100;
-      return drop < 30 ? `Resilient: Lost only ${drop.toFixed(1)}% connectivity after ${v.length - 1} failures.` : `Vulnerable: Snap failure detected (${drop.toFixed(1)}% loss).`;
-    }
-  },
-  blast_radius: {
-    title: "Blast Radius",
-    desc: "The impact of a single high-tier switch failure on total network capacity.",
-    impact: (v) => {
-      if (!v || v.length === 0) return "N/A: No core switches found.";
-      const avg_impact = v[0].impact;
-      return `Throughput Drop: ${avg_impact.toFixed(1)}% per Spine failure. Total spines protect against total blackout.`;
-    }
-  },
-  cabling_complexity: {
-    title: "Cabling Complexity",
-    desc: "The total number of hardware connections (edges) required. More edges mean more cables, cooling, and power.",
-    impact: (v) => v > 500 ? "High Cost: Heavy cabling requirements. Typical for non-blocking architectures." : "Optimized: Low cabling overhead. Cost-effective for smaller scales."
-  },
-  edge_to_node_ratio: {
-    title: "Edge-to-Node Ratio",
-    desc: "Measures resource density. A higher ratio indicates more infrastructure per node, increasing TCO.",
-    impact: (v) => v > 2.0 ? "Complex: High ratio suggests a very dense, likely redundant backbone." : "Efficient: Lower ratio suggests a lean architecture with fewer redundant paths."
-  },
-  expansion_impact: {
-    title: "Scaling Expansion Impact",
-    desc: "The number of new cables that must be run to the Core switches when adding exactly one new POD (approx 20 hosts).",
-    impact: (v) => {
-      if (currentArch === 'leaf-spine') {
-        return `Winner: Scaling is predictable. Adding 1 Leaf requires only <b>${v}</b> new cables to the Spine.`;
-      }
-      return `Linear Growth: Each new pod requires <b>${v}</b> new connections to the Core layer.`;
+      return v < 0.2 ? "Distributed: Low dependency on single nodes." : "Concentrated: High reliance on specific nodes.";
     }
   },
   node_count: {
@@ -238,10 +204,19 @@ fetch(`${API}/architectures`)
 
 document.getElementById("archSelect").onchange = e => loadArchitecture(e.target.value);
 
-document.getElementById("failures").oninput = e =>
-  document.getElementById("failCount").textContent = e.target.value;
-
 document.getElementById("runFail").onclick = simulateFailures;
+document.getElementById("resetSim").onclick = () => {
+  document.getElementById("viewImpact").classList.add("hidden");
+  document.getElementById("resetSim").classList.add("hidden");
+  loadArchitecture(currentArch);
+};
+if (document.getElementById("viewImpact")) {
+  document.getElementById("viewImpact").onclick = () => {
+    generateFailureImpact();
+    overlay.classList.remove("hidden");
+  };
+}
+
 document.getElementById("runCompare").onclick = runComparison;
 document.getElementById("clearCompare").onclick = () => {
   document.querySelectorAll("#compareChecks input:checked").forEach(c => c.checked = false);
@@ -331,8 +306,9 @@ function loadArchitecture(arch) {
   editorMode = null;
   linkSource = null;
   isClusterLayout = true;
-  isClusterLayout = true;
-  document.getElementById("resetGraphBtn").classList.add("hidden");
+  if (document.getElementById("resetGraphBtn")) document.getElementById("resetGraphBtn").classList.add("hidden");
+  if (document.getElementById("resetSim")) document.getElementById("resetSim").classList.add("hidden");
+  if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.add("hidden");
   clearError();
 
   fetch(`${API}/graph/${arch}`)
@@ -423,6 +399,15 @@ function drawGraph(data) {
         }
       },
       {
+        selector: "node.failed",
+        style: {
+          "background-color": "#000",
+          "opacity": 0.2,
+          "border-color": "#ff0000",
+          "border-width": 2
+        }
+      },
+      {
         selector: "node:selected",
         style: {
           "border-color": "#fbbf24",
@@ -434,8 +419,9 @@ function drawGraph(data) {
     layout: { name: "cose", animate: false, nodeRepulsion: () => 8000, idealEdgeLength: () => 50 }
   });
 
-  // Update Legend
+  // Update Legend & Hierarchy
   updateLegend(data);
+  updateHierarchy(data);
 
   // Interactivity for highlighting
   cy.on('mouseover', 'node', function (e) {
@@ -491,7 +477,7 @@ function drawGraph(data) {
 function updateLegend(data) {
   const roles = new Set();
   data.nodes.forEach(n => {
-    const role = n.data ? n.data.role : n.role; // handle different data formats
+    const role = n.data ? n.data.role : n.role;
     if (role) roles.add(role);
   });
 
@@ -527,12 +513,50 @@ function updateLegend(data) {
   tooltip.appendChild(list);
 }
 
+function updateHierarchy(data) {
+  const nodes = data.nodes;
+  const counts = {};
+  const rolesFound = [];
+
+  nodes.forEach(n => {
+    const role = n.data.role;
+    if (!counts[role]) {
+      counts[role] = 0;
+      rolesFound.push(role);
+    }
+    counts[role]++;
+  });
+
+  const roleOrder = ["core", "aggregation", "leaf", "edge", "access", "router", "host"];
+  rolesFound.sort((a, b) => roleOrder.indexOf(a) - roleOrder.indexOf(b));
+
+  // Update Failure Inputs
+  const fContainer = document.getElementById("failure-inputs");
+  if (!fContainer) return;
+  fContainer.innerHTML = "";
+  rolesFound.forEach(role => {
+    if (role === "host") return;
+    const name = (ROLE_MAP[currentArch] && ROLE_MAP[currentArch][role]) || role.charAt(0).toUpperCase() + role.slice(1);
+
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.justifyContent = "space-between";
+    div.style.alignItems = "center";
+    div.style.marginBottom = "8px";
+    div.innerHTML = `
+      <label style="margin: 0; font-size: 0.8rem;">${name}</label>
+      <input type="number" id="fail_${role}" min="0" max="${counts[role]}" value="0" style="width: 60px; padding: 4px 8px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 4px; color: var(--text-main); font-size: 0.8rem;">
+    `;
+    fContainer.appendChild(div);
+  });
+}
+
 // ==============================
 // METRICS
 // ==============================
 
-function updateMetrics(m) {
-  baselineMetrics = m;
+function updateMetrics(m, isTemporary = false) {
+  if (!isTemporary) baselineMetrics = m;
   try {
     document.getElementById("m_nodes").textContent = m.node_count ?? "-";
     document.getElementById("m_links").textContent = m.link_count ?? "-";
@@ -541,7 +565,10 @@ function updateMetrics(m) {
     document.getElementById("m_diameter").textContent = m.diameter ?? 0;
     document.getElementById("m_bc").textContent = (m.max_betweenness ?? 0).toFixed(4);
     document.getElementById("m_cc").textContent = (m.largest_cc_ratio ?? 0).toFixed(2);
-    document.getElementById("m_conn").textContent = "100%"; // default
+
+    const connectivity = m.host_connectivity ?? 1.0;
+    document.getElementById("m_conn").textContent = (connectivity * 100).toFixed(1) + "%";
+
     document.getElementById("m_redundancy").textContent = m.redundancy ?? "-";
     document.getElementById("m_cost").textContent = m.cost_efficiency ?? "-";
   } catch (e) {
@@ -578,34 +605,98 @@ function recalcCustomMetrics() {
 // ==============================
 
 function simulateFailures() {
-  const k = document.getElementById("failures").value;
+  const counts = {};
+  const inputs = document.querySelectorAll("#failure-inputs input");
+  inputs.forEach(inp => {
+    const role = inp.id.replace("fail_", "");
+    counts[role] = parseInt(inp.value) || 0;
+  });
 
-  fetch(`${API}/fail/${currentArch}?k=${k}`)
+  fetch(`${API}/fail/${currentArch}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ counts })
+  })
     .then(r => r.json())
     .then(res => {
-      document.getElementById("m_conn").textContent = (res.host_connectivity * 100).toFixed(1) + "%";
+      latestFailureMetrics = {
+        ...baselineMetrics,
+        ...res.metrics
+      };
+      // Update sidebar metrics to show impact
+      updateMetrics(latestFailureMetrics, true);
+
+      if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.remove("hidden");
+      if (document.getElementById("resetSim")) document.getElementById("resetSim").classList.remove("hidden");
       highlightFailures(res.failed_nodes);
     })
     .catch(err => showError(`Failure simulation failed: ${err.message}`));
 }
 
 function highlightFailures(failed) {
-  cy.nodes().style({
-    "opacity": 1,
-    "background-color": e => roleColor(e.data("role"))
-  });
+  // Reset all nodes first
+  cy.nodes().removeClass('failed');
 
   failed.forEach(id => {
     const n = cy.getElementById(id);
     if (n.length) {
-      n.animate({
-        style: {
-          "background-color": "#000",
-          "opacity": 0.2
-        },
-        duration: 500
-      });
+      n.addClass('failed');
     }
+  });
+}
+
+function generateFailureImpact() {
+  const impactContent = document.getElementById("inferenceContent");
+  if (!impactContent || !overlay) return;
+
+  impactContent.innerHTML = "";
+  overlay.querySelector('h3').textContent = "Failure Impact Analysis";
+
+  const table = document.createElement("table");
+  table.className = "comparison-table";
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Metric Parameter</th>
+        <th>Baseline</th>
+        <th>Under Failure</th>
+        <th>Change</th>
+      </tr>
+    </thead>
+    <tbody id="impact-body"></tbody>
+  `;
+  impactContent.appendChild(table);
+
+  const body = table.querySelector("#impact-body");
+
+  const metricsToCompare = [
+    { key: "avg_host_path", name: "Average Path Length (Hops)", higherIsBetter: false },
+    { key: "avg_host_latency", name: "Average Latency", higherIsBetter: false },
+    { key: "path_diversity", name: "ECMP Path Diversity", higherIsBetter: true },
+    { key: "bisection_bw", name: "Bisection Capacity", higherIsBetter: true },
+    { key: "host_connectivity", name: "Host Connectivity (%)", higherIsBetter: true, transform: v => (v * 100).toFixed(1) + "%" },
+    { key: "max_betweenness", name: "Max Choke Point Load", higherIsBetter: false }
+  ];
+
+  metricsToCompare.forEach(m => {
+    const baseVal = baselineMetrics[m.key] || 0;
+    const failVal = latestFailureMetrics[m.key] || 0;
+    const diff = failVal - baseVal;
+
+    let trendClass = "";
+    if (Math.abs(diff) > 0.0001) {
+      const isBetter = m.higherIsBetter ? diff > 0 : diff < 0;
+      trendClass = isBetter ? "trend-good" : "trend-bad";
+    }
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="metric-name">${m.name}</td>
+      <td class="value-old">${m.transform ? m.transform(baseVal) : baseVal.toFixed(2)}</td>
+      <td class="value-new">${m.transform ? m.transform(failVal) : failVal.toFixed(2)}</td>
+      <td class="${trendClass}">${diff > 0 ? '+' : ''}${m.transform ? m.transform(diff) : diff.toFixed(2)}</td>
+    `;
+    body.appendChild(row);
   });
 }
 
@@ -699,6 +790,7 @@ const closeBtn = document.getElementById("closeOverlay");
 const infContent = document.getElementById("inferenceContent");
 
 document.getElementById("viewInference").onclick = () => {
+  if (overlay) overlay.querySelector('h3').textContent = "Architectural Inference";
   overlay.classList.remove("hidden");
   generateInferences();
 };
@@ -709,7 +801,6 @@ if (closeBtn) {
   };
 }
 
-// Close Comparison Modal
 const closeCompareBtn = document.getElementById("closeCompare");
 if (closeCompareBtn) {
   closeCompareBtn.onclick = () => {
@@ -740,7 +831,6 @@ function generateInferences() {
     keys.forEach(key => {
       const data = INFERENCES[key];
       const val = baselineMetrics[key];
-      // Only show if we have data and the metric is defined in INFERENCES
       if (val === undefined || !data) return;
 
       const card = document.createElement("div");
@@ -754,15 +844,6 @@ function generateInferences() {
     });
   });
 }
-
-// Global error catches
-window.addEventListener("error", e => {
-  try { showError(`Uncaught error: ${e.message}`); } catch (_) { }
-});
-window.addEventListener("unhandledrejection", e => {
-  try { showError(`Unhandled promise rejection: ${e.reason}`); } catch (_) { }
-});
-
 
 // Global error catches
 window.addEventListener("error", e => {

@@ -33,7 +33,7 @@ ARCHITECTURES = {
 
 
 def compute_all_metrics(G):
-    """Compute all 10 metrics for a graph."""
+    """Compute all 13 metrics for a graph."""
     return {
         "node_count": metrics.node_count(G),
         "link_count": metrics.link_count(G),
@@ -45,6 +45,10 @@ def compute_all_metrics(G):
         "redundancy": metrics.redundancy(G),
         "avg_clustering": metrics.avg_clustering(G),
         "cost_efficiency": metrics.cost_efficiency(G),
+        # Advanced metrics for comparison consistency
+        "path_diversity": metrics.host_path_diversity(G),
+        "bisection_bw": metrics.estimate_bisection_bandwidth(G),
+        "host_connectivity": metrics.host_connectivity_ratio(G)
     }
 
 
@@ -90,18 +94,35 @@ def graph_metrics(arch):
     return jsonify(compute_all_metrics(G))
 
 
-@app.route("/fail/<arch>")
+@app.route("/fail/<arch>", methods=["POST"])
 def fail(arch):
-    k = int(request.args.get("k", 5))
+    # Support both role-based counts (JSON) and simple k-value (query param)
+    if request.is_json:
+        counts = request.json.get("counts", {})
+    else:
+        k = int(request.args.get("k", 0))
+        counts = {"core": k} # Default to core if only k provided
+
     if arch not in ARCHITECTURES:
         return jsonify({"error": "unknown architecture"}), 404
     G = ARCHITECTURES[arch].copy()
 
-    failed = metrics.targeted_core_failures(G, k)
+    if "core" in counts and len(counts) == 1 and not request.is_json:
+        failed = metrics.targeted_core_failures(G, counts["core"])
+    else:
+        failed = metrics.specific_node_failures(G, counts)
 
+    # Metrics for impact analysis
     return jsonify({
         "failed_nodes": failed,
-        "host_connectivity": metrics.host_connectivity_ratio(G)
+        "metrics": {
+            "host_connectivity": metrics.host_connectivity_ratio(G),
+            "avg_host_path": metrics.sampled_host_path_length(G),
+            "avg_host_latency": metrics.weighted_host_path(G),
+            "path_diversity": metrics.host_path_diversity(G),
+            "bisection_bw": metrics.estimate_bisection_bandwidth(G),
+            "max_betweenness": metrics.max_betweenness(G)
+        }
     })
 
 

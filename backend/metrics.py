@@ -134,8 +134,75 @@ def avg_clustering(G):
         return 0
 
 # -------------------------------
-# FAILURE MODEL
+# ADVANCED ANALYSIS & FAILURE MODEL
 # -------------------------------
+
+def host_path_diversity(G, samples=50):
+    hosts = [n for n, d in G.nodes(data=True) if d.get("role") == "host"]
+    if len(hosts) < 2:
+        return 0
+    total_paths = 0
+    count = 0
+    # Use actual host count if smaller than samples
+    sample_size = min(samples, len(hosts) * (len(hosts) - 1) // 2)
+    for _ in range(sample_size):
+        u, v = random.sample(hosts, 2)
+        try:
+            # Shortest paths between hosts
+            paths = list(nx.all_shortest_paths(G, u, v))
+            total_paths += len(paths)
+            count += 1
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            pass
+    return total_paths / count if count > 0 else 1.0
+
+
+def estimate_bisection_bandwidth(G, samples=5):
+    hosts = [n for n, d in G.nodes(data=True) if d.get("role") == "host"]
+    if len(hosts) < 2:
+        return 0
+    min_bisection = float("inf")
+    for _ in range(samples):
+        random.shuffle(hosts)
+        mid = len(hosts) // 2
+        group_a = hosts[:mid]
+        group_b = hosts[mid:]
+        G_temp = G.copy()
+        G_temp.add_node("super_source")
+        G_temp.add_node("super_sink")
+        for h in group_a: G_temp.add_edge("super_source", h, capacity=float("inf"))
+        for h in group_b: G_temp.add_edge("super_sink", h, capacity=float("inf"))
+        for u, v in G.edges():
+            if "capacity" not in G_temp[u][v]: G_temp[u][v]["capacity"] = 1
+        try:
+            cut_value, _ = nx.minimum_cut(G_temp, "super_source", "super_sink")
+            min_bisection = min(min_bisection, cut_value)
+        except:
+            pass
+    return min_bisection if min_bisection != float("inf") else 0
+
+
+def specific_node_failures(G, failure_counts):
+    """
+    Simulate failures for specific roles.
+    failure_counts: dict { 'core': 2, 'leaf': 1 }
+    """
+    failed_nodes = []
+    # Calculate centrality once for all roles to be efficient
+    centrality = nx.betweenness_centrality(G)
+    
+    for role, count in failure_counts.items():
+        if count <= 0:
+            continue
+        nodes_of_role = [n for n, d in G.nodes(data=True) if d.get("role") == role]
+        # Sort by importance (centrality)
+        nodes_of_role.sort(key=lambda n: centrality.get(n, 0), reverse=True)
+        to_fail = nodes_of_role[:count]
+        failed_nodes.extend(to_fail)
+        
+    G.remove_nodes_from(failed_nodes)
+    return failed_nodes
+
 
 def targeted_core_failures(G, k):
     # Find nodes with role "core", or if none, use highest betweenness nodes

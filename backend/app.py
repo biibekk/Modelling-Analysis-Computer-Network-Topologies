@@ -79,7 +79,14 @@ def graph(arch):
     ]
 
     edges = [
-        {"data": {"source": u, "target": v, "latency": d.get("latency")}}
+        {
+            "data": {
+                "source": u,
+                "target": v,
+                "latency": d.get("latency"),
+                "bandwidth": d.get("bandwidth")
+            }
+        }
         for u, v, d in G.edges(data=True)
     ]
 

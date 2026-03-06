@@ -102,13 +102,16 @@ def host_connectivity_ratio(G):
 
 
 def redundancy(G):
-    """Edge connectivity: minimum number of edges to remove to disconnect the graph."""
-    if G.number_of_nodes() < 2:
+    # Create a subgraph without hosts
+    core_nodes = [n for n, d in G.nodes(data=True) if d.get("role") != "host"]
+    if len(core_nodes) < 2:
         return 0
+    G_core = G.subgraph(core_nodes)
     try:
-        return nx.edge_connectivity(G)
+        return nx.edge_connectivity(G_core)
     except Exception:
         return 0
+
 
 # -------------------------------
 # CENTRALITY METRICS

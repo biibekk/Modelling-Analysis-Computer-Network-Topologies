@@ -204,32 +204,35 @@ def campus_network():
     # Core
     G.add_node("Core_Router", role="core")
     G.add_node("Core_Router_Backup", role="core")
-    G.add_edge("Core_Router", "Core_Router_Backup")
+    # Core <-> Core: 100 Gbps, 0.1 ms
+    G.add_edge("Core_Router", "Core_Router_Backup", bandwidth="100 Gbps", capacity=100, latency=0.1)
 
     buildings = ["Library", "Admin", "CS_Dept", "Engineering", "Dorms"]
 
     hid = 0
     for bldg in buildings:
-        # Building router
+        # Building router (Department Router)
         br = f"{bldg}_Router"
         G.add_node(br, role="router")
-        G.add_edge("Core_Router", br)
-        G.add_edge("Core_Router_Backup", br)
+        # Core <-> Department Router: 40 Gbps, 0.3 ms
+        G.add_edge("Core_Router", br, bandwidth="40 Gbps", capacity=40, latency=0.3)
+        G.add_edge("Core_Router_Backup", br, bandwidth="40 Gbps", capacity=40, latency=0.3)
 
         # 2 floor switches per building
         for floor in range(1, 3):
             sw = f"{bldg}_Floor{floor}_SW"
             G.add_node(sw, role="switch")
-            G.add_edge(br, sw)
+            # Department Router <-> Floor Switch: 10 Gbps, 0.8 ms
+            G.add_edge(br, sw, bandwidth="10 Gbps", capacity=10, latency=0.8)
 
             # 3 hosts per floor
             for _ in range(3):
                 h = f"H{hid}"
                 G.add_node(h, role="host")
-                G.add_edge(sw, h)
+                # Floor Switch <-> Host: 1 Gbps, 1.5 ms
+                G.add_edge(sw, h, bandwidth="1 Gbps", capacity=1, latency=1.5)
                 hid += 1
 
-    add_latency(G, 1, 5)
     return G
 
 

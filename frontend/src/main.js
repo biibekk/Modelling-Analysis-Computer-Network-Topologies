@@ -22,8 +22,8 @@ let currentArch = "";
 let editorMode = null; // null | "addLink" | "delete"
 let linkSource = null; // for two-click link creation
 let isClusterLayout = true; // default to cluster layout
-let baselineMetrics = {};
-let latestFailureMetrics = {};
+let baselineMetrics = {};     // Stores metrics of original network.
+let latestFailureMetrics = {};     // Stores metrics after failure simulation.  
 
 const ROLE_MAP = {
   "leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
@@ -306,7 +306,7 @@ function loadArchitecture(arch) {
   editorMode = null;
   linkSource = null;
   isClusterLayout = true;
-  if (document.getElementById("resetGraphBtn")) document.getElementById("resetGraphBtn").classList.add("hidden");
+  if (document.getElementById("resetGraphBtn")) document.getElementById("resetGraphBtn").classList.add("hidden");  // below graph editor
   if (document.getElementById("resetSim")) document.getElementById("resetSim").classList.add("hidden");
   if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.add("hidden");
   clearError();

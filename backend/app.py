@@ -160,6 +160,31 @@ def compare():
 
 
 # -------------------------------
+# CAMPUS NETWORK SPECIFIC ANALYSIS
+# -------------------------------
+
+@app.route("/campus-analysis")
+def campus_analysis():
+    """
+    Specific high-level bandwidth analyses for the Campus Network.
+    1. Max flow between departments
+    2. Bottleneck link detection
+    3. Congestion simulation
+    4. Bandwidth-aware routing samples
+    """
+    G = ARCHITECTURES.get("campus")
+    if not G:
+        return jsonify({"error": "campus architecture not found"}), 404
+        
+    return jsonify({
+        "max_flow": metrics.max_flow_between_departments(G),
+        "bottlenecks": metrics.detect_bottlenecks(G),
+        "congestion_simulation": metrics.simulate_congestion(G, load_factor=1.2),
+        "routing_samples": metrics.bandwidth_aware_routing_sample(G)
+    })
+
+
+# -------------------------------
 # CUSTOM GRAPH endpoint (for editor)
 # -------------------------------
 

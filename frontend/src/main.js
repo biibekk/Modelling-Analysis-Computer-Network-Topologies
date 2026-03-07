@@ -222,6 +222,109 @@ document.getElementById("clearCompare").onclick = () => {
   document.querySelectorAll("#compareChecks input:checked").forEach(c => c.checked = false);
 };
 
+document.getElementById("viewCampusAnalysis").onclick = () => {
+  if (overlay) overlay.querySelector('h3').textContent = "Campus Network Bandwidth Analysis";
+  overlay.classList.remove("hidden");
+  fetchCampusAnalysis();
+};
+
+function fetchCampusAnalysis() {
+  infContent.innerHTML = "<p>Analyzing flow and congestion... please wait.</p>";
+  fetch(`${API}/campus-analysis`)
+    .then(r => r.json())
+    .then(renderCampusAnalysis)
+    .catch(err => showError(`Campus analysis failed: ${err.message}`));
+}
+
+function renderCampusAnalysis(data) {
+  infContent.innerHTML = "";
+
+  // 1. Max Flow
+  const fSection = document.createElement("div");
+  fSection.className = "inf-section-header";
+  fSection.textContent = "1. Maximum Flow Between Departments (Gbps)";
+  infContent.appendChild(fSection);
+
+  const fTable = document.createElement("table");
+  fTable.className = "comparison-table";
+  fTable.innerHTML = `<thead><tr><th>Source</th><th>Target</th><th>Max Bandwidth</th></tr></thead><tbody></tbody>`;
+  const fBody = fTable.querySelector("tbody");
+  data.max_flow.forEach(f => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${f.source}</td><td>${f.target}</td><td><b>${f.flow} Gbps</b></td>`;
+    fBody.appendChild(row);
+  });
+  infContent.appendChild(fTable);
+
+  // 2. Bottlenecks
+  const bSection = document.createElement("div");
+  bSection.className = "inf-section-header";
+  bSection.textContent = "2. Critical Bottleneck Links";
+  infContent.appendChild(bSection);
+
+  const bGrid = document.createElement("div");
+  bGrid.className = "inf-grid";
+  data.bottlenecks.slice(0, 4).forEach(b => {
+    const card = document.createElement("div");
+    card.className = "inf-card";
+    card.innerHTML = `
+      <div class="inf-title" style="color: #ef4444">High Probability Bottleneck</div>
+      <div class="inf-desc">Link: ${b.edge}</div>
+      <div class="inf-impact">This link appeared in <b>${b.frequency}</b> minimum cuts between department pairs.</div>
+    `;
+    bGrid.appendChild(card);
+  });
+  infContent.appendChild(bGrid);
+
+  // 3. Congestion
+  const cSection = document.createElement("div");
+  cSection.className = "inf-section-header";
+  cSection.textContent = "3. Link Congestion Simulation (load factor 1.2)";
+  infContent.appendChild(cSection);
+
+  if (data.congestion_simulation.length === 0) {
+    const p = document.createElement("p");
+    p.textContent = "No links exceeded 70% utilization in this simulation.";
+    infContent.appendChild(p);
+  } else {
+    const cTable = document.createElement("table");
+    cTable.className = "comparison-table";
+    cTable.innerHTML = `<thead><tr><th>Link</th><th>Current Load</th><th>Utilization</th></tr></thead><tbody></tbody>`;
+    const cBody = cTable.querySelector("tbody");
+    data.congestion_simulation.forEach(c => {
+      const row = document.createElement("tr");
+      const utilClass = c.utilization > 100 ? "trend-bad" : "";
+      row.innerHTML = `<td>${c.edge}</td><td>${c.load} / ${c.capacity} Gbps</td><td class="${utilClass}"><b>${c.utilization}%</b></td>`;
+      cBody.appendChild(row);
+    });
+    infContent.appendChild(cTable);
+  }
+
+  // 4. Bandwidth-Aware Routing
+  const rSection = document.createElement("div");
+  rSection.className = "inf-section-header";
+  rSection.textContent = "4. Bandwidth-Aware vs. Shortest Path Routing";
+  infContent.appendChild(rSection);
+
+  const rGrid = document.createElement("div");
+  rGrid.className = "inf-grid";
+  data.routing_samples.forEach(s => {
+    const card = document.createElement("div");
+    card.className = "inf-card";
+    const status = s.same ? "Same Path" : "Optimized Path Found";
+    const statusColor = s.same ? "#10b981" : "#8b5cf6";
+    card.innerHTML = `
+      <div class="inf-title" style="color: ${statusColor}">${status}</div>
+      <div class="inf-desc">${s.from} → ${s.to}</div>
+      <div class="inf-impact">
+        ${s.same ? "Standard hop-count shortest path already uses the widest links." : "Bandwidth-aware routing found a wider (though potentially longer) path to avoid congestion."}
+      </div>
+    `;
+    rGrid.appendChild(card);
+  });
+  infContent.appendChild(rGrid);
+}
+
 // Viewport controls
 document.getElementById("resetView").onclick = () => {
   if (cy) cy.fit();
@@ -309,6 +412,13 @@ function loadArchitecture(arch) {
   if (document.getElementById("resetGraphBtn")) document.getElementById("resetGraphBtn").classList.add("hidden");  // below graph editor
   if (document.getElementById("resetSim")) document.getElementById("resetSim").classList.add("hidden");
   if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.add("hidden");
+
+  const campusBtn = document.getElementById("viewCampusAnalysis");
+  if (campusBtn) {
+    if (arch === "campus") campusBtn.classList.remove("hidden");
+    else campusBtn.classList.add("hidden");
+  }
+
   clearError();
 
   fetch(`${API}/graph/${arch}`)

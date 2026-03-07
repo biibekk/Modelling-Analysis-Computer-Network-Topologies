@@ -26,9 +26,10 @@ let baselineMetrics = {};     // Stores metrics of original network.
 let latestFailureMetrics = {};     // Stores metrics after failure simulation.  
 
 const ROLE_MAP = {
-  "leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
-  "fat-tree": { "core": "Core", "aggregation": "Aggregation", "edge": "Edge", "host": "Host" },
-  "three-tier": { "core": "Core", "aggregation": "Aggregation", "access": "Access", "host": "Host" }
+  "dc-leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
+  "dc-fat-tree": { "core": "Core", "aggregation": "Aggregation", "edge": "Edge", "host": "Host" },
+  "dc-three-tier": { "core": "Core", "aggregation": "Aggregation", "access": "Access", "host": "Host" },
+  "3-tier": { "core": "Core", "router": "Bldg Router", "switch": "Floor SW", "host": "Host" }
 };
 
 const INFERENCES = {
@@ -152,7 +153,8 @@ fetch(`${API}/architectures`)
     const archSelect = document.getElementById("archSelect");
 
     // Categorize architectures
-    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
+    const dcArchs = new Set(["dc-leaf-spine", "dc-fat-tree", "dc-three-tier"]);
+    const campusArchs = new Set(["3-tier", "2-tier", "leaf-spine", "partial-mesh"]);
 
     function updateArchOptions() {
       const type = simTypeSelect.value;
@@ -162,7 +164,8 @@ fetch(`${API}/architectures`)
 
       const filtered = allArchs.filter(a => {
         if (type === "data_center") return dcArchs.has(a);
-        return !dcArchs.has(a);
+        if (type === "campus_sim") return campusArchs.has(a);
+        return !dcArchs.has(a) && !campusArchs.has(a);
       });
 
       filtered.forEach(a => {
@@ -230,7 +233,7 @@ document.getElementById("viewCampusAnalysis").onclick = () => {
 
 function fetchCampusAnalysis() {
   infContent.innerHTML = "<p>Analyzing flow and congestion... please wait.</p>";
-  fetch(`${API}/campus-analysis`)
+  fetch(`${API}/campus-analysis/${currentArch}`)
     .then(r => r.json())
     .then(renderCampusAnalysis)
     .catch(err => showError(`Campus analysis failed: ${err.message}`));
@@ -415,7 +418,7 @@ function loadArchitecture(arch) {
 
   const campusBtn = document.getElementById("viewCampusAnalysis");
   if (campusBtn) {
-    if (arch === "campus") campusBtn.classList.remove("hidden");
+    if (arch === "3-tier" || arch === "2-tier" || arch === "leaf-spine" || arch === "partial-mesh") campusBtn.classList.remove("hidden");
     else campusBtn.classList.add("hidden");
   }
 

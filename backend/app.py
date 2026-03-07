@@ -17,16 +17,19 @@ CORS(app)
 
 ARCHITECTURES = {
     # Data Center
-    "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
-    "fat-tree": models.fat_tree(4),
-    "three-tier": models.three_tier(2, 4, 8, 3),
+    "dc-leaf-spine": models.scalable_leaf_spine(4, 8, 3),
+    "dc-fat-tree": models.fat_tree(4),
+    "dc-three-tier": models.three_tier(2, 4, 8, 3),
     # Basic / Textbook
     "star": models.star_topology(15),
     "ring": models.ring_topology(12),
     "mesh": models.mesh_topology(8),
     "grid": models.grid_topology(4, 4),
-    # Real-World
-    "campus": models.campus_network(),
+    # Real-World (Campus Network Simulation)
+    "3-tier": models.campus_network(),
+    "2-tier": models.campus_2tier_collapsed(),
+    "leaf-spine": models.campus_leaf_spine(),
+    "partial-mesh": models.campus_partial_mesh(),
     "wan": models.wan_network(),
     "wireless-city": models.wireless_city(),
 }
@@ -163,18 +166,14 @@ def compare():
 # CAMPUS NETWORK SPECIFIC ANALYSIS
 # -------------------------------
 
-@app.route("/campus-analysis")
-def campus_analysis():
+@app.route("/campus-analysis/<arch>")
+def campus_analysis(arch):
     """
     Specific high-level bandwidth analyses for the Campus Network.
-    1. Max flow between departments
-    2. Bottleneck link detection
-    3. Congestion simulation
-    4. Bandwidth-aware routing samples
     """
-    G = ARCHITECTURES.get("campus")
+    G = ARCHITECTURES.get(arch)
     if not G:
-        return jsonify({"error": "campus architecture not found"}), 404
+        return jsonify({"error": "architecture not found"}), 404
         
     return jsonify({
         "max_flow": metrics.max_flow_between_departments(G),

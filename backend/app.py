@@ -17,9 +17,9 @@ CORS(app)
 
 ARCHITECTURES = {
     # Data Center
-    "dc-leaf-spine": models.scalable_leaf_spine(4, 8, 3),
-    "dc-fat-tree": models.fat_tree(4),
-    "dc-three-tier": models.three_tier(2, 4, 8, 3),
+    "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
+    "fat-tree": models.fat_tree(4),
+    "three-tier": models.three_tier(2, 4, 8, 3),
     # Basic / Textbook
     "star": models.star_topology(15),
     "ring": models.ring_topology(12),
@@ -28,7 +28,7 @@ ARCHITECTURES = {
     # Real-World (Campus Network Simulation)
     "3-tier": models.campus_network(),
     "2-tier": models.campus_2tier_collapsed(),
-    "leaf-spine": models.campus_leaf_spine(),
+    "campus-leaf-spine": models.campus_leaf_spine(),
     "partial-mesh": models.campus_partial_mesh(),
     "wan": models.wan_network(),
     "wireless-city": models.wireless_city(),
@@ -125,14 +125,7 @@ def fail(arch):
     # Metrics for impact analysis
     return jsonify({
         "failed_nodes": failed,
-        "metrics": {
-            "host_connectivity": metrics.host_connectivity_ratio(G),
-            "avg_host_path": metrics.sampled_host_path_length(G),
-            "avg_host_latency": metrics.weighted_host_path(G),
-            "path_diversity": metrics.host_path_diversity(G),
-            "bisection_bw": metrics.estimate_bisection_bandwidth(G),
-            "max_betweenness": metrics.max_betweenness(G)
-        }
+        "metrics": compute_all_metrics(G)
     })
 
 

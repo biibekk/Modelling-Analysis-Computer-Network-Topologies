@@ -26,7 +26,7 @@
           <label>Simulation Type</label>
           <select id="simType">
             <option value="data_center">Data Center Network</option>
-            <option value="campus_sim">Campus Network</option>
+            <option value="campus_sim" selected>Campus Network</option>
             <option value="miscellaneous">Miscellaneous</option>
           </select>
         </div>
@@ -154,6 +154,14 @@
             <td id="m_clustering">-</td>
           </tr>
           <tr>
+            <td>Path Diversity</td>
+            <td id="m_diversity">-</td>
+          </tr>
+          <tr>
+            <td>Bisection BW</td>
+            <td id="m_bisection">-</td>
+          </tr>
+          <tr>
             <td>Cost Efficiency</td>
             <td id="m_cost">-</td>
           </tr>
@@ -181,7 +189,7 @@
   <!-- ANALYSIS OVERLAY -->
   <div id="analysisOverlay" class="analysis-overlay hidden">
     <div class="overlay-header">
-      <h3>Architectural Inference</h3>
+      <h3>Performance Analysis</h3>
       <button id="closeOverlay" class="close-btn">&times;</button>
     </div>
     <div id="inferenceContent" class="overlay-content">

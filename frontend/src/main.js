@@ -26,93 +26,79 @@ let baselineMetrics = {};     // Stores metrics of original network.
 let latestFailureMetrics = {};     // Stores metrics after failure simulation.  
 
 const ROLE_MAP = {
-  "dc-leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
-  "dc-fat-tree": { "core": "Core", "aggregation": "Aggregation", "edge": "Edge", "host": "Host" },
-  "dc-three-tier": { "core": "Core", "aggregation": "Aggregation", "access": "Access", "host": "Host" },
+  "leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
+  "fat-tree": { "core": "Core", "aggregation": "Aggregation", "edge": "Edge", "host": "Host" },
+  "three-tier": { "core": "Core", "aggregation": "Aggregation", "access": "Access", "host": "Host" },
   "3-tier": { "core": "Core", "router": "Bldg Router", "switch": "Floor SW", "host": "Host" }
 };
 
 const INFERENCES = {
   avg_host_path: {
     title: "Path Efficiency",
-    desc: "The average number of hops between any two hosts. Lower values mean faster propagation and fewer switch traversals.",
-    impact: (v) => v < 4 ? "Excellent: Very flat architecture." : "Average: Standard multi-tier overhead."
+    impact: (v) => v < 4 ? `Excellent efficiency: The current average of ${v.toFixed(2)} hops indicates a very flat architecture, minimizing switch traversals and reducing overall packet delay.` : `Standard efficiency: An average of ${v.toFixed(2)} hops is typical for multi-tier networks, representing balanced routing depth.`
   },
   avg_host_latency: {
     title: "Propagation Latency",
-    desc: "The time data takes to travel across the wires and through switches. This is the baseline speed of your network.",
-    impact: (v) => v < 15 ? "High Speed: Optimized for low-latency tasks." : "Standard: Suitable for general data processing."
+    impact: (v) => v < 15 ? `High Speed: With an average latency of ${v.toFixed(2)}ms, the network is optimized for real-time applications and low-latency data center workloads.` : `Standard Latency: An average of ${v.toFixed(2)}ms is suitable for general-purpose workloads and standard office/campus traffic.`
   },
   intra_pod_hops: {
     title: "Locality Performance",
-    desc: "Hop count for nodes in the same pod. Critical for database clusters where nodes talk to each other frequently.",
-    impact: (v) => v <= 2 ? "Local-First: High efficiency for intra-rack traffic." : "Distributed: High overhead for local traffic."
+    impact: (v) => v <= 2 ? `Local-First: High efficiency for intra-pod traffic (current: ${v.toFixed(1)} hops), allowing for high-performance localized clustering.` : `Distributed: High overhead for local traffic (current: ${v.toFixed(1)} hops), potentially impacting performance of localized services.`
   },
   jitter: {
     title: "Latency Jitter",
-    desc: "The variance in path latency. High jitter causes packet reordering, which forces TCP to slow down.",
-    impact: (v) => v < 3 ? "Stable: Ideal for real-time streaming/gaming." : "Noisy: Risk of packet reordering under load."
+    impact: (v) => v < 3 ? `Stable Pathing: Low variance (${v.toFixed(2)}ms jitter) provides a predictable stream, ideal for voice and video traffic.` : `Varied Pathing: Higher jitter (${v.toFixed(2)}ms) may cause packet reordering, requiring larger buffers for real-time streams.`
   },
   path_diversity: {
     title: "ECMP Path Diversity",
-    desc: "The number of equal-cost shortest paths between hosts. In Leaf-Spine, this should equal the number of Spine switches.",
     impact: (v, m) => {
+      const paths = (v || 0).toFixed(1);
       if (currentArch === 'leaf-spine' && m.num_spines > 0) {
-        return v >= m.num_spines ? `Ideal: Full ECMP utilization (${v} paths).` : `Suboptimal: Only ${v}/${m.num_spines} paths available. Possible wiring flaw.`;
+        return v >= m.num_spines ? `Optimal: Full ECMP utilization with ${paths} paths, maximizing load balancing across the spine.` : `Suboptimal: Only ${paths}/${m.num_spines} paths available. This indicates a potential wiring bottleneck.`;
       }
-      return v > 1 ? `Resilient: Multiple ECMP paths (${v.toFixed(1)}) available.` : "Limited: Single path bottlenecks.";
+      return v > 1 ? `Resilient: Multiple ECMP paths (${paths}) provide strong redundancy against single link failures.` : `Limited: A single path bottleneck (current: ${paths}) makes the network susceptible to link-level congestion.`;
     }
   },
   bisection_bw: {
     title: "Bisection Bandwidth",
-    desc: "The minimum capacity between two equal halves of the network. Measures if the core can handle simultaneous host traffic.",
     impact: (v, m) => {
+      const bw = (v || 0).toFixed(0);
       const ratio = m.oversubscription;
-      if (ratio && ratio <= 1.1) return "Non-blocking: Theoretical max throughput for all hosts.";
-      return `Throughput Capacity: ${v.toFixed(0)} units. Measures the core's ability to handle global host traffic.`;
+      if (ratio && ratio <= 1.1) return `Non-blocking: Full bisection capacity (${bw}Gbps) allows all hosts to communicate at line rate simultaneously.`;
+      return `Throughput Capacity: The current ${bw}Gbps bisection limit determines how much traffic can move between the two halves of the network simultaneously.`;
     }
   },
   diameter: {
-    title: "Worst-Case Distance",
-    desc: "The longest possible path in the network. Sets the upper bound on latency for any two nodes.",
-    impact: (v) => v <= 4 ? "Tight: Predictable worst-case performance." : "Wide: High variance in maximum delay."
+    title: "Max Network Span",
+    impact: (v) => v <= 4 ? `Tight Span: A maximum distance of ${v} hops ensures predictable worst-case latency across the entire topology.` : `Wide Span: A maximum distance of ${v} hops creates high variance in delay between distant parts of the network.`
   },
   max_betweenness: {
-    title: "Criticality (Choke Points)",
-    desc: "Identifies the switch with the highest traffic load. High values indicate a single point of failure.",
-    impact: (v, m) => {
-      return v < 0.2 ? "Distributed: Low dependency on single nodes." : "Concentrated: High reliance on specific nodes.";
-    }
+    title: "Choke Point Analysis",
+    impact: (v) => v < 0.2 ? `Distributed Load: No single node carries more than ${(v * 100).toFixed(1)}% of all shortest paths, indicating a well-balanced, resilient core.` : `Concentrated Load: A single node handles ${(v * 100).toFixed(1)}% of all paths, creating a significant theoretical bottleneck.`
   },
   node_count: {
-    title: "Node Count",
-    desc: "The total number of devices (switches, routers, hosts) in the network topology.",
-    impact: (v) => v > 100 ? "Large Scale: Requires efficient management and optimization." : "Manageable: Standard size for analysis."
+    title: "Device Inventory",
+    impact: (v) => v > 100 ? `Large Scale: Managing ${v} devices requires high automation and robust configuration management.` : `Compact: The scale of ${v} devices is easily managed with standard network administrative tools.`
   },
   link_count: {
-    title: "Link Count",
-    desc: "The total number of physical connections (cables) between devices in the network.",
-    impact: (v) => "Infrastructure Load: Direct indicator of cabling cost and complexity."
+    title: "Cabling Complexity",
+    impact: (v) => v > 200 ? `High Density: With ${v} physical links, this topology represents a highly interconnected and complex wiring infrastructure.` : `Moderate Density: The ${v} physical links represent a standard cabling requirement for this network size.`
   },
   largest_cc_ratio: {
-    title: "Largest Connected Component",
-    desc: "The percentage of the network that remains connected in a single chunk. 1.0 means fully connected.",
-    impact: (v) => v === 1 ? "Fully Connected: All nodes can reach each other." : `Fragmented: ${(1 - v).toFixed(2) * 100}% of the network is isolated.`
+    title: "Network Cohesion",
+    impact: (v) => v === 1 ? "Fully Cohesive: 100% of the network is connected, ensuring any node can reach any other node." : `Fragmented: Only ${(v * 100).toFixed(1)}% of the network is currently cohesive, meaning some subnets are isolated.`
   },
   redundancy: {
     title: "Link Redundancy",
-    desc: "The ratio of links to nodes (Edges / Nodes). Higher values indicate more alternative paths and resilience.",
-    impact: (v) => v > 1.5 ? "High Redundancy: Good fault tolerance." : "Low Redundancy: Susceptible to link failures."
+    impact: (v) => v > 1.2 ? `High Redundancy: A ratio of ${v.toFixed(2)} links per node indicates excellent fault tolerance and multiple bypass options.` : `Low Redundancy: A ratio of ${v.toFixed(2)} links per node makes the network more vulnerable to individual link failures.`
   },
   avg_clustering: {
-    title: "Average Clustering Coefficient",
-    desc: "A measure of how localized the connectivity is. High clustering means neighbors of a node are also neighbors of each other.",
-    impact: (v) => v < 0.1 ? "Sparse: Typical for hierarchical trees like Leaf-Spine." : "Clustered: High local interconnectivity."
+    title: "Local Clustering",
+    impact: (v) => v < 0.1 ? `Sparse Layout: Typical for hierarchical trees, focusing on vertical traffic flow rather than local mesh.` : `Clustered Connectivity: High local interconnection (coeff: ${v.toFixed(2)}) suggests a mesh-like structure within specific pods.`
   },
   cost_efficiency: {
-    title: "Cost Efficiency",
-    desc: "A composite metric balancing performance (throughput/latency) against infrastructure cost (nodes + links).",
-    impact: (v) => "Balanced: Higher values indicate better performance per unit of cost."
+    title: "Infrastructure ROI",
+    impact: (v) => `Balanced Performance: A score of ${v.toFixed(2)} represents the performance efficiency relative to the hardware investment cost.`
   }
 };
 
@@ -153,8 +139,8 @@ fetch(`${API}/architectures`)
     const archSelect = document.getElementById("archSelect");
 
     // Categorize architectures
-    const dcArchs = new Set(["dc-leaf-spine", "dc-fat-tree", "dc-three-tier"]);
-    const campusArchs = new Set(["3-tier", "2-tier", "leaf-spine", "partial-mesh"]);
+    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
+    const campusArchs = new Set(["3-tier", "2-tier", "campus-leaf-spine", "partial-mesh"]);
 
     function updateArchOptions() {
       const type = simTypeSelect.value;
@@ -193,6 +179,7 @@ fetch(`${API}/architectures`)
     }
 
     simTypeSelect.onchange = updateArchOptions;
+    simTypeSelect.value = "campus_sim";
     updateArchOptions(); // Initial load
 
     if (allArchs.length === 0) {
@@ -418,7 +405,7 @@ function loadArchitecture(arch) {
 
   const campusBtn = document.getElementById("viewCampusAnalysis");
   if (campusBtn) {
-    if (arch === "3-tier" || arch === "2-tier" || arch === "leaf-spine" || arch === "partial-mesh") campusBtn.classList.remove("hidden");
+    if (arch === "3-tier" || arch === "2-tier" || arch === "campus-leaf-spine" || arch === "partial-mesh") campusBtn.classList.remove("hidden");
     else campusBtn.classList.add("hidden");
   }
 
@@ -683,6 +670,9 @@ function updateMetrics(m, isTemporary = false) {
     document.getElementById("m_conn").textContent = (connectivity * 100).toFixed(1) + "%";
 
     document.getElementById("m_redundancy").textContent = m.redundancy ?? "-";
+    document.getElementById("m_clustering").textContent = (m.avg_clustering ?? 0).toFixed(4);
+    document.getElementById("m_diversity").textContent = (m.path_diversity ?? 0).toFixed(2);
+    document.getElementById("m_bisection").textContent = (m.bisection_bw ?? 0).toFixed(0) + " Gbps";
     document.getElementById("m_cost").textContent = m.cost_efficiency ?? "-";
   } catch (e) {
     showError(`Error updating metrics: ${e.message}`);
@@ -772,8 +762,8 @@ function generateFailureImpact() {
       <tr>
         <th>Metric Parameter</th>
         <th>Baseline</th>
-        <th>Under Failure</th>
-        <th>Change</th>
+        <th>Post-Failure</th>
+        <th>Net Change</th>
       </tr>
     </thead>
     <tbody id="impact-body"></tbody>
@@ -783,31 +773,41 @@ function generateFailureImpact() {
   const body = table.querySelector("#impact-body");
 
   const metricsToCompare = [
-    { key: "avg_host_path", name: "Average Path Length (Hops)", higherIsBetter: false },
-    { key: "avg_host_latency", name: "Average Latency", higherIsBetter: false },
+    { key: "host_connectivity", name: "Host Connectivity", higherIsBetter: true, transform: v => (v * 100).toFixed(1) + "%" },
+    { key: "avg_host_path", name: "Avg Path Length (Hops)", higherIsBetter: false },
+    { key: "avg_host_latency", name: "Average Latency", higherIsBetter: false, unit: "ms" },
     { key: "path_diversity", name: "ECMP Path Diversity", higherIsBetter: true },
-    { key: "bisection_bw", name: "Bisection Capacity", higherIsBetter: true },
-    { key: "host_connectivity", name: "Host Connectivity (%)", higherIsBetter: true, transform: v => (v * 100).toFixed(1) + "%" },
-    { key: "max_betweenness", name: "Max Choke Point Load", higherIsBetter: false }
+    { key: "bisection_bw", name: "Bisection Capacity", higherIsBetter: true, unit: " Gbps" },
+    { key: "largest_cc_ratio", name: "Network Cohesion", higherIsBetter: true, transform: v => (v * 100).toFixed(1) + "%" },
+    { key: "max_betweenness", name: "Choke Point Stress", higherIsBetter: false },
+    { key: "redundancy", name: "Link Redundancy", higherIsBetter: true },
+    { key: "avg_clustering", name: "Local Clustering", higherIsBetter: true },
+    { key: "diameter", name: "Diameter", higherIsBetter: false },
+    { key: "node_count", name: "Alive Nodes", higherIsBetter: true },
+    { key: "link_count", name: "Active Links", higherIsBetter: true }
   ];
 
   metricsToCompare.forEach(m => {
-    const baseVal = baselineMetrics[m.key] || 0;
-    const failVal = latestFailureMetrics[m.key] || 0;
+    const baseVal = baselineMetrics[m.key] ?? 0;
+    const failVal = latestFailureMetrics[m.key] ?? 0;
     const diff = failVal - baseVal;
 
     let trendClass = "";
-    if (Math.abs(diff) > 0.0001) {
+
+    if (Math.abs(diff) > 0.000001) {
       const isBetter = m.higherIsBetter ? diff > 0 : diff < 0;
       trendClass = isBetter ? "trend-good" : "trend-bad";
     }
 
+    const pctChange = baseVal !== 0 ? ((diff / baseVal) * 100).toFixed(1) : "0.0";
+    const sign = diff > 0 ? "+" : "";
+
     const row = document.createElement("tr");
     row.innerHTML = `
       <td class="metric-name">${m.name}</td>
-      <td class="value-old">${m.transform ? m.transform(baseVal) : baseVal.toFixed(2)}</td>
-      <td class="value-new">${m.transform ? m.transform(failVal) : failVal.toFixed(2)}</td>
-      <td class="${trendClass}">${diff > 0 ? '+' : ''}${m.transform ? m.transform(diff) : diff.toFixed(2)}</td>
+      <td class="value-old">${m.transform ? m.transform(baseVal) : baseVal.toFixed(2)}${m.unit || ""}</td>
+      <td class="value-new">${m.transform ? m.transform(failVal) : failVal.toFixed(2)}${m.unit || ""}</td>
+      <td class="${trendClass}">${sign}${m.transform ? m.transform(diff) : diff.toFixed(2)} (${sign}${pctChange}%)</td>
     `;
     body.appendChild(row);
   });
@@ -825,12 +825,15 @@ const METRIC_LABELS = {
   diameter: "Diameter",
   max_betweenness: "Max Betweenness",
   largest_cc_ratio: "Largest CC Ratio",
+  host_connectivity: "Host Connectivity",
   redundancy: "Redundancy",
+  path_diversity: "Path Diversity",
+  bisection_bw: "Bisection BW",
   avg_clustering: "Avg Clustering",
   cost_efficiency: "Cost Efficiency"
 };
 
-const HIGHER_IS_BETTER = new Set(["largest_cc_ratio", "redundancy", "avg_clustering"]);
+const HIGHER_IS_BETTER = new Set(["largest_cc_ratio", "redundancy", "avg_clustering", "path_diversity", "bisection_bw", "host_connectivity"]);
 const LOWER_IS_BETTER = new Set(["avg_host_path", "avg_host_latency", "diameter", "cost_efficiency", "max_betweenness"]);
 
 function runComparison() {
@@ -851,13 +854,18 @@ function runComparison() {
 
 function renderComparisonTable(data, archs) {
   const section = document.getElementById("compareSection");
+  if (!section) return;
   section.classList.remove("hidden");
 
   const table = document.getElementById("compareTable");
   const metricKeys = Object.keys(METRIC_LABELS);
 
+  // Track "wins" for architectural optimality
+  const winCounts = archs.map(() => 0);
+  const winReasons = archs.map(() => []);
+
   let html = `<thead><tr><th>Metric</th>`;
-  archs.forEach(a => { html += `<th>${a}</th>`; });
+  archs.forEach(a => { html += `<th>${a.replace(/-/g, ' ').toUpperCase()}</th>`; });
   html += `</tr></thead><tbody>`;
 
   metricKeys.forEach(key => {
@@ -879,6 +887,11 @@ function renderComparisonTable(data, archs) {
       }
     }
 
+    if (bestIdx !== -1) {
+      winCounts[bestIdx]++;
+      winReasons[bestIdx].push(METRIC_LABELS[key]);
+    }
+
     html += `<tr><td><span class="metric-name">${METRIC_LABELS[key]}</span></td>`;
     values.forEach((v, i) => {
       const formatted = v !== null ? (typeof v === "number" ? v.toFixed(3).replace(/\.?0+$/, '') : v) : "-";
@@ -892,6 +905,35 @@ function renderComparisonTable(data, archs) {
 
   html += `</tbody>`;
   table.innerHTML = html;
+
+  // Add Optimal Summary
+  const maxWins = Math.max(...winCounts);
+  const bestArchIdx = winCounts.indexOf(maxWins);
+  const bestArch = archs[bestArchIdx];
+  const reasons = winReasons[bestArchIdx].slice(0, 4); // Top 4 reasons
+
+  // Remove existing summary if any
+  const oldSummary = section.querySelector(".optimal-summary");
+  if (oldSummary) oldSummary.remove();
+
+  const summary = document.createElement("div");
+  summary.className = "optimal-summary inf-card";
+  summary.style.marginTop = "2rem";
+  summary.style.borderLeft = "4px solid var(--success)";
+
+  summary.innerHTML = `
+    <div class="inf-title" style="color: var(--success)">Recommended Optimal Topology: ${bestArch.replace(/-/g, ' ').toUpperCase()}</div>
+    <div class="inf-desc">
+      Based on the comparative analysis, <b>${bestArch}</b> is the optimal selection for this configuration. 
+      It achieved the best performance score in <b>${maxWins}</b> key metrics.
+    </div>
+    <div class="inf-impact" style="color: var(--text-main); background: rgba(16, 185, 129, 0.1); border-color: var(--success)">
+      <b>Core Strengths:</b> ${reasons.join(", ")}. 
+      This combination suggests a highly efficient balance between propagation speed and structural resilience.
+    </div>
+  `;
+
+  table.parentElement.appendChild(summary);
 }
 
 // ==============================
@@ -903,7 +945,7 @@ const closeBtn = document.getElementById("closeOverlay");
 const infContent = document.getElementById("inferenceContent");
 
 document.getElementById("viewInference").onclick = () => {
-  if (overlay) overlay.querySelector('h3').textContent = "Architectural Inference";
+  if (overlay) overlay.querySelector('h3').textContent = "Performance Analysis";
   overlay.classList.remove("hidden");
   generateInferences();
 };
@@ -927,8 +969,8 @@ function generateInferences() {
   const sections = {
     "Performance & Speed": ["avg_host_path", "avg_host_latency", "intra_pod_hops", "jitter", "diameter"],
     "Throughput & Diversity": ["path_diversity", "bisection_bw", "avg_clustering"],
-    "Resilience & Survival": ["max_betweenness", "graceful_degradation", "blast_radius", "largest_cc_ratio", "redundancy"],
-    "Scalability & Cost": ["cabling_complexity", "edge_to_node_ratio", "expansion_impact", "node_count", "link_count", "cost_efficiency"]
+    "Resilience & Survival": ["max_betweenness", "largest_cc_ratio", "redundancy"],
+    "Scalability & Cost": ["node_count", "link_count", "cost_efficiency"]
   };
 
   Object.entries(sections).forEach(([sectionTitle, keys]) => {
@@ -949,9 +991,10 @@ function generateInferences() {
       const card = document.createElement("div");
       card.className = "inf-card";
       card.innerHTML = `
-        <div class="inf-title">${data.title}</div>
-        <div class="inf-desc">${data.desc}</div>
-        <div class="inf-impact"><b>Baseline State:</b> ${data.impact(val, baselineMetrics)}</div>
+        <div class="inf-title" style="margin-bottom: 0.5rem; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em; color: var(--accent-primary);">${data.title}</div>
+        <div class="inf-impact" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-main); border: none; background: transparent; padding: 0; border-left: 2px solid var(--accent-secondary); padding-left: 12px;">
+          ${data.impact(val, baselineMetrics)}
+        </div>
       `;
       sectionGrid.appendChild(card);
     });

@@ -20,15 +20,16 @@ ARCHITECTURES = {
     # "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
     # "fat-tree": models.fat_tree(4),
     # "three-tier": models.three_tier(2, 4, 8, 3),
-    "large-leaf-spine": models.scalable_leaf_spine(8, 50, 20),
-    "large-fat-tree": models.fat_tree(16),
-    "large-three-tier": models.three_tier(8, 20, 50, 20),
-    # Basic / Textbook
+    # "large-leaf-spine": models.scalable_leaf_spine(8, 50, 20),
+    "leaf-spine": models.scalable_leaf_spine(8, 50, 20),
+    "fat-tree": models.fat_tree(16),
+    "three-tier": models.three_tier(8, 20, 50, 20),
+    # Basic
     "star": models.star_topology(15),
     "ring": models.ring_topology(12),
     "mesh": models.mesh_topology(8),
     "grid": models.grid_topology(4, 4),
-    # Real-World (Campus Network Simulation)
+    # Campus Network Simulation
     "3-tier": models.campus_network(),
     "2-tier": models.campus_2tier_collapsed(),
     "campus-leaf-spine": models.campus_leaf_spine(),
@@ -51,7 +52,6 @@ def compute_all_metrics(G):
         "redundancy": metrics.redundancy(G),
         "avg_clustering": metrics.avg_clustering(G),
         "cost_efficiency": metrics.cost_efficiency(G),
-        # Advanced metrics for comparison consistency
         "path_diversity": metrics.host_path_diversity(G),
         "bisection_bw": metrics.estimate_bisection_bandwidth(G),
         "host_connectivity": metrics.host_connectivity_ratio(G)

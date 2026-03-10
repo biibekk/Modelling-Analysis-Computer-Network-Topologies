@@ -140,7 +140,8 @@ fetch(`${API}/architectures`)
     const archSelect = document.getElementById("archSelect");
 
     // Categorize architectures
-    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier", "large-leaf-spine", "large-fat-tree", "large-three-tier"]);
+    // const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier", "large-leaf-spine", "large-fat-tree", "large-three-tier"]);
+    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
     const campusArchs = new Set(["3-tier", "2-tier", "campus-leaf-spine", "partial-mesh"]);
 
     function updateArchOptions() {
@@ -236,11 +237,28 @@ function fetchCampusAnalysis() {
 function renderCampusAnalysis(data) {
   infContent.innerHTML = "";
 
+  // 0. Overview Summary
+  const summaryCard = document.createElement("div");
+  summaryCard.className = "inf-card";
+  summaryCard.style.marginBottom = "2rem";
+  summaryCard.style.borderLeft = "4px solid var(--accent-secondary)";
+  summaryCard.innerHTML = `
+    <div class="inf-title" style="color: var(--accent-secondary)">Analysis Overview</div>
+    <p class="inf-desc">This dashboard analyzes <b>flow dynamics</b> and <b>congestion probabilities</b> across your university infrastructure. It uses the physical capacity (Gbps) and latency (ms) of links to simulate high-traffic scenarios and identify structural weaknesses.</p>
+  `;
+  infContent.appendChild(summaryCard);
+
   // 1. Max Flow
   const fSection = document.createElement("div");
   fSection.className = "inf-section-header";
   fSection.textContent = "1. Maximum Flow Between Departments (Gbps)";
   infContent.appendChild(fSection);
+
+  const fDesc = document.createElement("p");
+  fDesc.className = "inf-desc";
+  fDesc.style.marginTop = "0.5rem";
+  fDesc.textContent = "Represents the total aggregate bandwidth available between departmental routers. This combines all redundant, parallel paths to show the absolute top speed possible for data transfers between buildings.";
+  infContent.appendChild(fDesc);
 
   const fTable = document.createElement("table");
   fTable.className = "comparison-table";
@@ -258,6 +276,12 @@ function renderCampusAnalysis(data) {
   bSection.className = "inf-section-header";
   bSection.textContent = "2. Critical Bottleneck Links";
   infContent.appendChild(bSection);
+
+  const bDesc = document.createElement("p");
+  bDesc.className = "inf-desc";
+  bDesc.style.marginTop = "0.5rem";
+  bDesc.textContent = "These links are the 'weakest links' in your network. The frequency indicates how often this specific link was the primary reason for a speed limit during department-to-department communication.";
+  infContent.appendChild(bDesc);
 
   const bGrid = document.createElement("div");
   bGrid.className = "inf-grid";
@@ -279,9 +303,16 @@ function renderCampusAnalysis(data) {
   cSection.textContent = "3. Link Congestion Simulation (load factor 1.2)";
   infContent.appendChild(cSection);
 
+  const cDesc = document.createElement("p");
+  cDesc.className = "inf-desc";
+  cDesc.style.marginTop = "0.5rem";
+  cDesc.textContent = "Predicts 'traffic jams' during peak hours. We simulate hundreds of simultaneous data transfers (1.2x normal load) and flag any link exceeding 70% of its physical capacity.";
+  infContent.appendChild(cDesc);
+
   if (data.congestion_simulation.length === 0) {
     const p = document.createElement("p");
-    p.textContent = "No links exceeded 70% utilization in this simulation.";
+    p.className = "inf-desc";
+    p.textContent = "No links exceeded 70% utilization in this simulation. Your current architecture handles peak loads efficiently.";
     infContent.appendChild(p);
   } else {
     const cTable = document.createElement("table");
@@ -302,6 +333,12 @@ function renderCampusAnalysis(data) {
   rSection.className = "inf-section-header";
   rSection.textContent = "4. Bandwidth-Aware vs. Shortest Path Routing";
   infContent.appendChild(rSection);
+
+  const rDesc = document.createElement("p");
+  rDesc.className = "inf-desc";
+  rDesc.style.marginTop = "0.5rem";
+  rDesc.textContent = "Checks if your routing protocol is 'smart'. It compares the path with the fewest devices (Standard) against the path with the widest cables (Bandwidth-Aware).";
+  infContent.appendChild(rDesc);
 
   const rGrid = document.createElement("div");
   rGrid.className = "inf-grid";

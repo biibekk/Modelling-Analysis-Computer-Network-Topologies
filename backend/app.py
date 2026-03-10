@@ -17,9 +17,12 @@ CORS(app)
 
 ARCHITECTURES = {
     # Data Center
-    "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
-    "fat-tree": models.fat_tree(4),
-    "three-tier": models.three_tier(2, 4, 8, 3),
+    # "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
+    # "fat-tree": models.fat_tree(4),
+    # "three-tier": models.three_tier(2, 4, 8, 3),
+    "large-leaf-spine": models.scalable_leaf_spine(8, 50, 20),
+    "large-fat-tree": models.fat_tree(16),
+    "large-three-tier": models.three_tier(8, 20, 50, 20),
     # Basic / Textbook
     "star": models.star_topology(15),
     "ring": models.ring_topology(12),

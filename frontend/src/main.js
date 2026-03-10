@@ -24,6 +24,7 @@ let linkSource = null; // for two-click link creation
 let isClusterLayout = true; // default to cluster layout
 let baselineMetrics = {};     // Stores metrics of original network.
 let latestFailureMetrics = {};     // Stores metrics after failure simulation.  
+let latestCustomMetrics = {};      // Stores metrics after manual edits.
 
 const ROLE_MAP = {
   "leaf-spine": { "core": "Spine", "leaf": "Leaf", "host": "Host" },
@@ -139,7 +140,7 @@ fetch(`${API}/architectures`)
     const archSelect = document.getElementById("archSelect");
 
     // Categorize architectures
-    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
+    const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier", "large-leaf-spine", "large-fat-tree", "large-three-tier"]);
     const campusArchs = new Set(["3-tier", "2-tier", "campus-leaf-spine", "partial-mesh"]);
 
     function updateArchOptions() {
@@ -202,7 +203,13 @@ document.getElementById("resetSim").onclick = () => {
 };
 if (document.getElementById("viewImpact")) {
   document.getElementById("viewImpact").onclick = () => {
-    generateFailureImpact();
+    generateImpactAnalysis("Failure Impact Analysis", latestFailureMetrics, "Post-Failure");
+    overlay.classList.remove("hidden");
+  };
+}
+if (document.getElementById("viewEditorImpact")) {
+  document.getElementById("viewEditorImpact").onclick = () => {
+    generateImpactAnalysis("Editor Impact Analysis", latestCustomMetrics, "Edited State");
     overlay.classList.remove("hidden");
   };
 }
@@ -402,6 +409,7 @@ function loadArchitecture(arch) {
   if (document.getElementById("resetGraphBtn")) document.getElementById("resetGraphBtn").classList.add("hidden");  // below graph editor
   if (document.getElementById("resetSim")) document.getElementById("resetSim").classList.add("hidden");
   if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.add("hidden");
+  if (document.getElementById("viewEditorImpact")) document.getElementById("viewEditorImpact").classList.add("hidden");
 
   const campusBtn = document.getElementById("viewCampusAnalysis");
   if (campusBtn) {
@@ -698,7 +706,9 @@ function recalcCustomMetrics() {
   })
     .then(r => r.json())
     .then(m => {
-      updateMetrics(m);
+      latestCustomMetrics = m;
+      updateMetrics(m, true); // Update sidebar without overwriting baseline
+      if (document.getElementById("viewEditorImpact")) document.getElementById("viewEditorImpact").classList.remove("hidden");
     })
     .catch(err => showError(`Recalculate failed: ${err.message}`));
 }
@@ -748,12 +758,12 @@ function highlightFailures(failed) {
   });
 }
 
-function generateFailureImpact() {
+function generateImpactAnalysis(title, targetMetrics, currentLabel) {
   const impactContent = document.getElementById("inferenceContent");
   if (!impactContent || !overlay) return;
 
   impactContent.innerHTML = "";
-  overlay.querySelector('h3').textContent = "Failure Impact Analysis";
+  overlay.querySelector('h3').textContent = title;
 
   const table = document.createElement("table");
   table.className = "comparison-table";
@@ -762,7 +772,7 @@ function generateFailureImpact() {
       <tr>
         <th>Metric Parameter</th>
         <th>Baseline</th>
-        <th>Post-Failure</th>
+        <th>${currentLabel}</th>
         <th>Net Change</th>
       </tr>
     </thead>
@@ -789,8 +799,8 @@ function generateFailureImpact() {
 
   metricsToCompare.forEach(m => {
     const baseVal = baselineMetrics[m.key] ?? 0;
-    const failVal = latestFailureMetrics[m.key] ?? 0;
-    const diff = failVal - baseVal;
+    const currentVal = targetMetrics[m.key] ?? 0;
+    const diff = currentVal - baseVal;
 
     let trendClass = "";
 
@@ -806,7 +816,7 @@ function generateFailureImpact() {
     row.innerHTML = `
       <td class="metric-name">${m.name}</td>
       <td class="value-old">${m.transform ? m.transform(baseVal) : baseVal.toFixed(2)}${m.unit || ""}</td>
-      <td class="value-new">${m.transform ? m.transform(failVal) : failVal.toFixed(2)}${m.unit || ""}</td>
+      <td class="value-new">${m.transform ? m.transform(currentVal) : currentVal.toFixed(2)}${m.unit || ""}</td>
       <td class="${trendClass}">${sign}${m.transform ? m.transform(diff) : diff.toFixed(2)} (${sign}${pctChange}%)</td>
     `;
     body.appendChild(row);

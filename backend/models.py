@@ -4,17 +4,9 @@ import random
 LATENCY_RANGE = (1, 10)
 random.seed(42)
 
-# -------------------------------
-# UTILS
-# -------------------------------
-
 def add_latency(G, low=1, high=10):
     for u, v in G.edges():
         G[u][v]["latency"] = random.randint(low, high)
-
-# ===============================
-# DATA CENTER TOPOLOGIES
-# ===============================
 
 def scalable_leaf_spine(num_spine, num_leaf, hosts_per_leaf):
     G = nx.Graph()
@@ -111,10 +103,6 @@ def three_tier(core_n, agg_n, access_n, hosts_per_access):
     add_latency(G)
     return G
 
-# ===============================
-# BASIC / TEXTBOOK TOPOLOGIES
-# ===============================
-
 def star_topology(n=20):
     """1 central hub connected to n hosts."""
     G = nx.Graph()
@@ -133,10 +121,8 @@ def ring_topology(n=15):
     switches = [f"SW{i}" for i in range(n)]
     for s in switches:
         G.add_node(s, role="switch")
-    # ring edges
     for i in range(n):
         G.add_edge(switches[i], switches[(i + 1) % n])
-    # one host per switch
     for i, s in enumerate(switches):
         h = f"H{i}"
         G.add_node(h, role="host")
@@ -151,11 +137,11 @@ def mesh_topology(n=10):
     switches = [f"SW{i}" for i in range(n)]
     for s in switches:
         G.add_node(s, role="switch")
-    # full mesh between switches
+
     for i in range(n):
         for j in range(i + 1, n):
             G.add_edge(switches[i], switches[j])
-    # one host per switch
+
     for i, s in enumerate(switches):
         h = f"H{i}"
         G.add_node(h, role="host")
@@ -193,43 +179,31 @@ def grid_topology(rows=5, cols=5):
     add_latency(G)
     return G
 
-# ===============================
-# REAL-WORLD TOPOLOGIES
-# ===============================
-
 def campus_network():
     """University campus: Core Router -> Building Routers -> Floor Switches -> Hosts."""
     G = nx.Graph()
 
-    # Core
     G.add_node("Core_Router", role="core")
     G.add_node("Core_Router_Backup", role="core")
-    # Core <-> Core: 100 Gbps, 0.1 ms
     G.add_edge("Core_Router", "Core_Router_Backup", bandwidth="100 Gbps", capacity=100, latency=0.1)
 
     buildings = ["Library", "Admin", "CS_Dept", "Engineering", "Dorms"]
 
     hid = 0
     for bldg in buildings:
-        # Building router (Department Router)
         br = f"{bldg}_Router"
         G.add_node(br, role="router")
-        # Core <-> Department Router: 40 Gbps, 0.3 ms
         G.add_edge("Core_Router", br, bandwidth="40 Gbps", capacity=40, latency=0.3)
         G.add_edge("Core_Router_Backup", br, bandwidth="40 Gbps", capacity=40, latency=0.3)
 
-        # 2 floor switches per building
         for floor in range(1, 3):
             sw = f"{bldg}_Floor{floor}_SW"
             G.add_node(sw, role="switch")
-            # Department Router <-> Floor Switch: 10 Gbps, 0.8 ms
             G.add_edge(br, sw, bandwidth="10 Gbps", capacity=10, latency=0.8)
 
-            # 3 hosts per floor
             for _ in range(3):
                 h = f"H{hid}"
                 G.add_node(h, role="host")
-                # Floor Switch <-> Host: 1 Gbps, 1.5 ms
                 G.add_edge(sw, h, bandwidth="1 Gbps", capacity=1, latency=1.5)
                 hid += 1
 
@@ -254,7 +228,6 @@ def wan_network():
     for city, role in cities.items():
         G.add_node(city, role=role)
 
-    # Backbone connections (partial mesh with realistic latency)
     links = [
         ("NewYork", "London", 70),
         ("NewYork", "SaoPaulo", 120),
@@ -273,7 +246,6 @@ def wan_network():
     for src, tgt, lat in links:
         G.add_edge(src, tgt, latency=lat)
 
-    # Add 1 host per city (represents local network)
     for i, city in enumerate(cities):
         h = f"Host_{city}"
         G.add_node(h, role="host")
@@ -286,32 +258,28 @@ def wireless_city():
     """City-wide wireless: Base Stations -> Access Points -> Mobile Devices."""
     G = nx.Graph()
 
-    # Central controller
     G.add_node("City_Controller", role="core")
 
     zones = ["Downtown", "Suburb_N", "Suburb_S", "Industrial", "University"]
 
     mid = 0
     for zone in zones:
-        # Base station per zone
+
         bs = f"{zone}_BS"
         G.add_node(bs, role="base_station")
         G.add_edge("City_Controller", bs, latency=random.randint(5, 15))
 
-        # 2 access points per zone
         for ap_i in range(2):
             ap = f"{zone}_AP{ap_i}"
             G.add_node(ap, role="access_point")
             G.add_edge(bs, ap, latency=random.randint(2, 8))
 
-            # 3 mobile devices per AP
             for _ in range(3):
                 m = f"Mobile_{mid}"
                 G.add_node(m, role="host")
                 G.add_edge(ap, m, latency=random.randint(1, 5))
                 mid += 1
 
-    # Inter-zone links between adjacent base stations for redundancy
     zone_names = [f"{z}_BS" for z in zones]
     for i in range(len(zone_names) - 1):
         G.add_edge(zone_names[i], zone_names[i + 1], latency=random.randint(10, 25))
@@ -322,8 +290,7 @@ def wireless_city():
 def campus_2tier_collapsed():
     """Collapsed Core: Core/Distribution merged. Floor switches connect directly to redundant Core Switches."""
     G = nx.Graph()
-    
-    # Redundant Core switches - 100 Gbps, 0.1 ms
+
     G.add_node("Core_SW1", role="core")
     G.add_node("Core_SW2", role="core")
     G.add_edge("Core_SW1", "Core_SW2", latency=0.1, capacity=100, bandwidth="100 Gbps")
@@ -331,14 +298,12 @@ def campus_2tier_collapsed():
     buildings = ["Library", "Admin", "CS_Dept", "Engineering", "Dorms"]
     hid = 0
     for bldg in buildings:
-        # Floor switches connect directly to both Core switches - 40 Gbps, 0.3 ms
         for floor in range(1, 3):
             sw = f"{bldg}_Floor{floor}_SW"
             G.add_node(sw, role="switch")
             G.add_edge("Core_SW1", sw, latency=0.3, capacity=40, bandwidth="40 Gbps")
             G.add_edge("Core_SW2", sw, latency=0.3, capacity=40, bandwidth="40 Gbps")
 
-            # Hosts - 1 Gbps, 1.5 ms
             for _ in range(3):
                 h = f"H{hid}"
                 G.add_node(h, role="host")
@@ -350,8 +315,7 @@ def campus_2tier_collapsed():
 def campus_leaf_spine():
     """Modern Campus Fabric: Every access leaf connects to every spine core."""
     G = nx.Graph()
-    
-    # 2 Spines (Core)
+
     spines = ["Spine_1", "Spine_2"]
     for s in spines:
         G.add_node(s, role="core")
@@ -360,15 +324,13 @@ def campus_leaf_spine():
     buildings = ["Library", "Admin", "CS_Dept", "Engineering", "Dorms"]
     hid = 0
     for bldg in buildings:
-        # 1 Leaf per building
+
         leaf = f"{bldg}_Leaf"
         G.add_node(leaf, role="switch")
-        
-        # Connect Leaf to ALL Spines - 40 Gbps, 0.3 ms
+
         for s in spines:
             G.add_edge(s, leaf, latency=0.3, capacity=40, bandwidth="40 Gbps")
 
-        # 6 hosts per building leaf
         for _ in range(6):
             h = f"H{hid}"
             G.add_node(h, role="host")
@@ -379,9 +341,8 @@ def campus_leaf_spine():
 
 def campus_partial_mesh():
     """Survivable Hybrid: 3-Tier model + Inter-building links (Partial Mesh) for high availability."""
-    G = campus_network() # Start with standard 3-tier (contains its own 0.1/0.3/0.8/1.5 values)
-    
-    # Add Inter-building/Department redundancy links - 10 Gbps, 0.8 ms
+    G = campus_network() 
+
     mesh_links = [
         ("Library_Router", "Admin_Router"),
         ("Admin_Router", "CS_Dept_Router"),

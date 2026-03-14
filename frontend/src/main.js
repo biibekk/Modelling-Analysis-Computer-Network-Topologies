@@ -103,10 +103,6 @@ const INFERENCES = {
   }
 };
 
-// ==============================
-// HELPERS
-// ==============================
-
 function showError(msg) {
   console.error(msg);
   const el = document.getElementById("error");
@@ -124,10 +120,6 @@ function roleColor(role) {
   return COLORS[role] || COLORS.host;
 }
 
-// ==============================
-// INIT — load architecture list
-// ==============================
-
 fetch(`${API}/architectures`)
   .then(r => {
     if (!r.ok) throw new Error(`architectures request failed: ${r.status}`);
@@ -139,8 +131,6 @@ fetch(`${API}/architectures`)
     const simTypeSelect = document.getElementById("simType");
     const archSelect = document.getElementById("archSelect");
 
-    // Categorize architectures
-    // const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier", "large-leaf-spine", "large-fat-tree", "large-three-tier"]);
     const dcArchs = new Set(["leaf-spine", "fat-tree", "three-tier"]);
     const campusArchs = new Set(["3-tier", "2-tier", "campus-leaf-spine", "partial-mesh"]);
 
@@ -157,14 +147,12 @@ fetch(`${API}/architectures`)
       });
 
       filtered.forEach(a => {
-        // Dropdown options
         const o = document.createElement("option");
         o.value = a;
         const displayName = a.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         o.textContent = displayName;
         archSelect.appendChild(o);
 
-        // Compare checkboxes
         const lbl = document.createElement("label");
         const cb = document.createElement("input");
         cb.type = "checkbox";
@@ -189,10 +177,6 @@ fetch(`${API}/architectures`)
     }
   })
   .catch(err => showError(`Failed loading architectures: ${err.message}`));
-
-// ==============================
-// EVENT BINDINGS
-// ==============================
 
 document.getElementById("archSelect").onchange = e => loadArchitecture(e.target.value);
 
@@ -237,7 +221,6 @@ function fetchCampusAnalysis() {
 function renderCampusAnalysis(data) {
   infContent.innerHTML = "";
 
-  // 0. Overview Summary
   const summaryCard = document.createElement("div");
   summaryCard.className = "inf-card";
   summaryCard.style.marginBottom = "2rem";
@@ -248,7 +231,6 @@ function renderCampusAnalysis(data) {
   `;
   infContent.appendChild(summaryCard);
 
-  // 1. Max Flow
   const fSection = document.createElement("div");
   fSection.className = "inf-section-header";
   fSection.textContent = "1. Maximum Flow Between Departments (Gbps)";
@@ -271,7 +253,6 @@ function renderCampusAnalysis(data) {
   });
   infContent.appendChild(fTable);
 
-  // 2. Bottlenecks
   const bSection = document.createElement("div");
   bSection.className = "inf-section-header";
   bSection.textContent = "2. Critical Bottleneck Links";
@@ -297,7 +278,6 @@ function renderCampusAnalysis(data) {
   });
   infContent.appendChild(bGrid);
 
-  // 3. Congestion
   const cSection = document.createElement("div");
   cSection.className = "inf-section-header";
   cSection.textContent = "3. Link Congestion Simulation (load factor 1.2)";
@@ -328,7 +308,6 @@ function renderCampusAnalysis(data) {
     infContent.appendChild(cTable);
   }
 
-  // 4. Bandwidth-Aware Routing
   const rSection = document.createElement("div");
   rSection.className = "inf-section-header";
   rSection.textContent = "4. Bandwidth-Aware vs. Shortest Path Routing";
@@ -359,7 +338,6 @@ function renderCampusAnalysis(data) {
   infContent.appendChild(rGrid);
 }
 
-// Viewport controls
 document.getElementById("resetView").onclick = () => {
   if (cy) cy.fit();
 };
@@ -373,7 +351,6 @@ document.getElementById("toggleLayout").onclick = () => {
   cy.layout(layoutConfig).run();
 };
 
-// Editor buttons
 document.getElementById("addNodeBtn").onclick = () => {
   editorMode = null;
   linkSource = null;
@@ -434,10 +411,6 @@ document.getElementById("confirmAddNode").onclick = () => {
 document.getElementById("recalcBtn").onclick = recalcCustomMetrics;
 document.getElementById("resetGraphBtn").onclick = () => loadArchitecture(currentArch);
 
-// ==============================
-// LOAD GRAPH
-// ==============================
-
 function loadArchitecture(arch) {
   currentArch = arch;
   editorMode = null;
@@ -472,10 +445,6 @@ function loadArchitecture(arch) {
     .then(updateMetrics)
     .catch(err => showError(`Failed loading metrics: ${err.message}`));
 }
-
-// ==============================
-// CYTOSCAPE GRAPH
-// ==============================
 
 function drawGraph(data) {
   if (cy) cy.destroy();
@@ -564,11 +533,9 @@ function drawGraph(data) {
     layout: { name: "cose", animate: false, nodeRepulsion: () => 8000, idealEdgeLength: () => 50 }
   });
 
-  // Update Legend & Hierarchy
   updateLegend(data);
   updateHierarchy(data);
 
-  // Interactivity for highlighting
   cy.on('mouseover', 'node', function (e) {
     if (editorMode) return;
     const sel = e.target;
@@ -583,7 +550,6 @@ function drawGraph(data) {
     cy.elements().removeClass('faded highlighted neighbor');
   });
 
-  // Editor interactions
   cy.on("tap", "node", evt => {
     const node = evt.target;
     if (editorMode === "addLink") {
@@ -675,7 +641,6 @@ function updateHierarchy(data) {
   const roleOrder = ["core", "aggregation", "leaf", "edge", "access", "router", "host"];
   rolesFound.sort((a, b) => roleOrder.indexOf(a) - roleOrder.indexOf(b));
 
-  // Update Failure Inputs
   const fContainer = document.getElementById("failure-inputs");
   if (!fContainer) return;
   fContainer.innerHTML = "";
@@ -695,10 +660,6 @@ function updateHierarchy(data) {
     fContainer.appendChild(div);
   });
 }
-
-// ==============================
-// METRICS
-// ==============================
 
 function updateMetrics(m, isTemporary = false) {
   if (!isTemporary) baselineMetrics = m;
@@ -724,10 +685,6 @@ function updateMetrics(m, isTemporary = false) {
   }
 }
 
-// ==============================
-// RECALCULATE (custom edited graph)
-// ==============================
-
 function recalcCustomMetrics() {
   if (!cy) return;
 
@@ -750,10 +707,6 @@ function recalcCustomMetrics() {
     .catch(err => showError(`Recalculate failed: ${err.message}`));
 }
 
-// ==============================
-// FAILURES
-// ==============================
-
 function simulateFailures() {
   const counts = {};
   const inputs = document.querySelectorAll("#failure-inputs input");
@@ -773,7 +726,7 @@ function simulateFailures() {
         ...baselineMetrics,
         ...res.metrics
       };
-      // Update sidebar metrics to show impact
+
       updateMetrics(latestFailureMetrics, true);
 
       if (document.getElementById("viewImpact")) document.getElementById("viewImpact").classList.remove("hidden");
@@ -784,7 +737,6 @@ function simulateFailures() {
 }
 
 function highlightFailures(failed) {
-  // Reset all nodes first
   cy.nodes().removeClass('failed');
 
   failed.forEach(id => {
@@ -860,10 +812,6 @@ function generateImpactAnalysis(title, targetMetrics, currentLabel) {
   });
 }
 
-// ==============================
-// COMPARISON
-// ==============================
-
 const METRIC_LABELS = {
   node_count: "Node Count",
   link_count: "Link Count",
@@ -907,7 +855,6 @@ function renderComparisonTable(data, archs) {
   const table = document.getElementById("compareTable");
   const metricKeys = Object.keys(METRIC_LABELS);
 
-  // Track "wins" for architectural optimality
   const winCounts = archs.map(() => 0);
   const winReasons = archs.map(() => []);
 
@@ -953,13 +900,11 @@ function renderComparisonTable(data, archs) {
   html += `</tbody>`;
   table.innerHTML = html;
 
-  // Add Optimal Summary
   const maxWins = Math.max(...winCounts);
   const bestArchIdx = winCounts.indexOf(maxWins);
   const bestArch = archs[bestArchIdx];
-  const reasons = winReasons[bestArchIdx].slice(0, 4); // Top 4 reasons
+  const reasons = winReasons[bestArchIdx].slice(0, 4);
 
-  // Remove existing summary if any
   const oldSummary = section.querySelector(".optimal-summary");
   if (oldSummary) oldSummary.remove();
 
@@ -982,10 +927,6 @@ function renderComparisonTable(data, archs) {
 
   table.parentElement.appendChild(summary);
 }
-
-// ==============================
-// INFERENCE OVERLAY
-// ==============================
 
 const overlay = document.getElementById("analysisOverlay");
 const closeBtn = document.getElementById("closeOverlay");
@@ -1048,7 +989,6 @@ function generateInferences() {
   });
 }
 
-// Global error catches
 window.addEventListener("error", e => {
   try { showError(`Uncaught error: ${e.message}`); } catch (_) { }
 });

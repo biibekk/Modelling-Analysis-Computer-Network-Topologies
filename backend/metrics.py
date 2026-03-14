@@ -1,16 +1,8 @@
 import networkx as nx
 import random
 
-# -------------------------------
-# BASIC UTILS
-# -------------------------------
-
 def count_hosts(G):
     return sum(1 for _, d in G.nodes(data=True) if d.get("role") == "host")
-
-# -------------------------------
-# SIZE METRICS
-# -------------------------------
 
 def node_count(G):
     return G.number_of_nodes()
@@ -26,10 +18,6 @@ def cost_efficiency(G):
     if n == 0:
         return 0
     return round(G.number_of_edges() / n, 3)
-
-# -------------------------------
-# PATH METRICS
-# -------------------------------
 
 def sampled_host_path_length(G, samples=200):
     hosts = [n for n, d in G.nodes(data=True) if d.get("role") == "host"]
@@ -80,10 +68,6 @@ def sampled_diameter(G, samples=200):
 
     return max_d
 
-# -------------------------------
-# CONNECTIVITY METRICS
-# -------------------------------
-
 def largest_component_ratio(G):
     if G.number_of_nodes() == 0:
         return 0
@@ -102,7 +86,6 @@ def host_connectivity_ratio(G):
 
 
 def redundancy(G):
-    # Create a subgraph without hosts
     core_nodes = [n for n, d in G.nodes(data=True) if d.get("role") != "host"]
     if len(core_nodes) < 2:
         return 0
@@ -112,14 +95,7 @@ def redundancy(G):
     except Exception:
         return 0
 
-
-# -------------------------------
-# CENTRALITY METRICS
-# -------------------------------
-
 def max_betweenness(G, k=50):
-    # Use k-node sampling for approximation if graph is large
-    # This prevents the UI from freezing on large topologies
     if G.number_of_nodes() == 0:
         return 0
     if len(G) > k:
@@ -136,22 +112,16 @@ def avg_clustering(G):
     except Exception:
         return 0
 
-# -------------------------------
-# ADVANCED ANALYSIS & FAILURE MODEL
-# -------------------------------
-
 def host_path_diversity(G, samples=50):
     hosts = [n for n, d in G.nodes(data=True) if d.get("role") == "host"]
     if len(hosts) < 2:
         return 0
     total_paths = 0
     count = 0
-    # Use actual host count if smaller than samples
     sample_size = min(samples, len(hosts) * (len(hosts) - 1) // 2)
     for _ in range(sample_size):
         u, v = random.sample(hosts, 2)
         try:
-            # Shortest paths between hosts
             paths = list(nx.all_shortest_paths(G, u, v))
             total_paths += len(paths)
             count += 1
@@ -191,14 +161,12 @@ def specific_node_failures(G, failure_counts):
     failure_counts: dict { 'core': 2, 'leaf': 1 }
     """
     failed_nodes = []
-    # Calculate centrality once for all roles to be efficient
     centrality = nx.betweenness_centrality(G)
     
     for role, count in failure_counts.items():
         if count <= 0:
             continue
         nodes_of_role = [n for n, d in G.nodes(data=True) if d.get("role") == role]
-        # Sort by importance (centrality)
         nodes_of_role.sort(key=lambda n: centrality.get(n, 0), reverse=True)
         to_fail = nodes_of_role[:count]
         failed_nodes.extend(to_fail)
@@ -208,11 +176,9 @@ def specific_node_failures(G, failure_counts):
 
 
 def targeted_core_failures(G, k):
-    # Find nodes with role "core", or if none, use highest betweenness nodes
     core_nodes = [n for n, d in G.nodes(data=True) if d.get("role") == "core"]
 
     if not core_nodes:
-        # Fallback: target highest-betweenness non-host nodes
         non_hosts = [n for n, d in G.nodes(data=True) if d.get("role") != "host"]
         if not non_hosts:
             return []
@@ -230,11 +196,6 @@ def targeted_core_failures(G, k):
     G.remove_nodes_from(failed)
     return failed
 
-
-# -------------------------------
-# BANDWIDTH-BASED ANALYSES
-# -------------------------------
-
 def max_flow_between_departments(G):
     """Calculate maximum flow between all unique pairs of department routers."""
     departments = [n for n, d in G.nodes(data=True) if d.get("role") == "router"]
@@ -242,8 +203,6 @@ def max_flow_between_departments(G):
         return []
     
     results = []
-    # Use capacity attribute for flow
-    # Ensure all edges have capacity, default to 1 if missing
     G_temp = G.copy()
     for u, v, d in G_temp.edges(data=True):
         if "capacity" not in d:
@@ -279,15 +238,13 @@ def detect_bottlenecks(G):
             G_temp[u][v]["capacity"] = 1
 
     bottleneck_counts = {}
-    
-    # Analyze min-cuts for all department pairs
+
     for i in range(len(departments)):
         for j in range(i + 1, len(departments)):
             u, v = departments[i], departments[j]
             try:
                 cut_value, partition = nx.minimum_cut(G_temp, u, v, capacity="capacity")
                 reachable, non_reachable = partition
-                # Edges spanning the partition are the min-cut edges
                 for edge in G_temp.edges():
                     u_edge, v_edge = edge
                     if (u_edge in reachable and v_edge in non_reachable) or \
@@ -296,8 +253,7 @@ def detect_bottlenecks(G):
                         bottleneck_counts[edge_key] = bottleneck_counts.get(edge_key, 0) + 1
             except Exception:
                 pass
-    
-    # Format and sort results
+
     results = []
     for edge, count in bottleneck_counts.items():
         results.append({
@@ -306,7 +262,7 @@ def detect_bottlenecks(G):
         })
     
     results.sort(key=lambda x: x["frequency"], reverse=True)
-    return results[:10]  # Return top 10 bottlenecks
+    return results[:10]
 
 
 def simulate_congestion(G, load_factor=1.2):
@@ -317,18 +273,15 @@ def simulate_congestion(G, load_factor=1.2):
     hosts = [n for n, d in G.nodes(data=True) if d.get("role") == "host"]
     if not hosts:
         return []
-    
-    # Initialize link loads
+
     link_loads = {tuple(sorted(e)): 0.0 for e in G.edges()}
-    
-    # Simulate high-traffic scenario: many random host-to-host flows
+
     num_flows = len(hosts) * 3
     for _ in range(num_flows):
         u, v = random.sample(hosts, 2)
         try:
-            # Bandwidth-aware routing (prefer higher capacity links)
+
             path = nx.shortest_path(G, u, v, weight=lambda u, v, d: 1.0 / d.get("capacity", 0.1))
-            # Random demand between 0.5 and 2.0 Gbps
             demand = random.uniform(0.5, 2.0) * load_factor
             
             for i in range(len(path) - 1):
@@ -342,7 +295,7 @@ def simulate_congestion(G, load_factor=1.2):
     for edge, load in link_loads.items():
         capacity = G[edge[0]][edge[1]].get("capacity", 1.0)
         utilization = (load / capacity) * 100
-        if utilization > 70:  # Report links over 70% utilization
+        if utilization > 70: 
             congested_links.append({
                 "edge": f"{edge[0]} <-> {edge[1]}",
                 "load": round(load, 2),
@@ -364,10 +317,7 @@ def bandwidth_aware_routing_sample(G):
     for _ in range(3):
         u, v = random.sample(hosts, 2)
         try:
-            # 1. Hop-count shortest path
             hop_path = nx.shortest_path(G, u, v)
-            
-            # 2. Bandwidth-aware (weights = 1/capacity)
             bw_weight = lambda u, v, d: 1.0 / d.get("capacity", 0.1)
             bw_path = nx.shortest_path(G, u, v, weight=bw_weight)
             

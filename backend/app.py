@@ -10,26 +10,17 @@ from networkx.readwrite import json_graph
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
-
-# -------------------------------
-# BUILD PREDEFINED TOPOLOGIES
-# -------------------------------
-
 ARCHITECTURES = {
-    # Data Center
-    # "leaf-spine": models.scalable_leaf_spine(4, 8, 3),
-    # "fat-tree": models.fat_tree(4),
-    # "three-tier": models.three_tier(2, 4, 8, 3),
-    # "large-leaf-spine": models.scalable_leaf_spine(8, 50, 20),
+
     "leaf-spine": models.scalable_leaf_spine(8, 50, 20),
     "fat-tree": models.fat_tree(16),
     "three-tier": models.three_tier(8, 20, 50, 20),
-    # Basic
+
     "star": models.star_topology(15),
     "ring": models.ring_topology(12),
     "mesh": models.mesh_topology(8),
     "grid": models.grid_topology(4, 4),
-    # Campus Network Simulation
+
     "3-tier": models.campus_network(),
     "2-tier": models.campus_2tier_collapsed(),
     "campus-leaf-spine": models.campus_leaf_spine(),
@@ -56,11 +47,6 @@ def compute_all_metrics(G):
         "bisection_bw": metrics.estimate_bisection_bandwidth(G),
         "host_connectivity": metrics.host_connectivity_ratio(G)
     }
-
-
-# -------------------------------
-# ROUTES
-# -------------------------------
 
 @app.route('/')
 def serve():
@@ -109,12 +95,11 @@ def graph_metrics(arch):
 
 @app.route("/fail/<arch>", methods=["POST"])
 def fail(arch):
-    # Support both role-based counts (JSON) and simple k-value (query param)
     if request.is_json:
         counts = request.json.get("counts", {})
     else:
         k = int(request.args.get("k", 0))
-        counts = {"core": k} # Default to core if only k provided
+        counts = {"core": k} 
 
     if arch not in ARCHITECTURES:
         return jsonify({"error": "unknown architecture"}), 404
@@ -125,16 +110,10 @@ def fail(arch):
     else:
         failed = metrics.specific_node_failures(G, counts)
 
-    # Metrics for impact analysis
     return jsonify({
         "failed_nodes": failed,
         "metrics": compute_all_metrics(G)
     })
-
-
-# -------------------------------
-# COMPARE endpoint
-# -------------------------------
 
 @app.route("/compare")
 def compare():
@@ -157,11 +136,6 @@ def compare():
 
     return jsonify(results)
 
-
-# -------------------------------
-# CAMPUS NETWORK SPECIFIC ANALYSIS
-# -------------------------------
-
 @app.route("/campus-analysis/<arch>")
 def campus_analysis(arch):
     """
@@ -177,11 +151,6 @@ def campus_analysis(arch):
         "congestion_simulation": metrics.simulate_congestion(G, load_factor=1.2),
         "routing_samples": metrics.bandwidth_aware_routing_sample(G)
     })
-
-
-# -------------------------------
-# CUSTOM GRAPH endpoint (for editor)
-# -------------------------------
 
 @app.route("/graph/custom", methods=["POST"])
 def custom_graph_metrics():
